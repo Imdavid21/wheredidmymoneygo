@@ -324,14 +324,14 @@ const Index = () => {
             
             <StatsGrid stats={data.stats} incomeSources={data.incomeSources} />
             
-            <BehaviorInsights transactions={data.transactions} stats={data.stats} />
-            
             {data.categories.length > 0 && (
               <SankeyDiagram 
                 categories={data.categories} 
                 stats={data.stats} 
               />
             )}
+            
+            <BehaviorInsights transactions={data.transactions} stats={data.stats} />
             
             <SpendingTrends transactions={data.transactions} stats={data.stats} />
             
