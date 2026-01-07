@@ -115,11 +115,7 @@ const SpendingTrends = ({ transactions, stats }: SpendingTrendsProps) => {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 mb-6 md:mb-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xs md:text-sm font-medium">Spending Trends</h2>
-      </div>
-
+    <div className="space-y-3 md:space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
         {/* Daily Spending Over Time */}
         {dailySpending.length > 1 && (

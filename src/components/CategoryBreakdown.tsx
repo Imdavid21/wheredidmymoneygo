@@ -116,8 +116,7 @@ const CategoryBreakdown = ({ categories, stats }: CategoryBreakdownProps) => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2 md:mb-3">
-        <h2 className="text-xs md:text-sm font-medium">Categories</h2>
+      <div className="flex items-center justify-end mb-2 md:mb-3">
         <span className="text-[10px] md:text-xs text-muted-foreground">Tap to expand</span>
       </div>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">

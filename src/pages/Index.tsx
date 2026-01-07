@@ -7,6 +7,11 @@ import SankeyDiagram from '@/components/SankeyDiagram';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
 import SpendingTrends from '@/components/SpendingTrends';
 import BehaviorInsights from '@/components/BehaviorInsights';
+import AnalysisSection from '@/components/AnalysisSection';
+import SpendingHeatmap from '@/components/SpendingHeatmap';
+import ImpulseScore from '@/components/ImpulseScore';
+import SpendingVelocity from '@/components/SpendingVelocity';
+import WaterfallChart from '@/components/WaterfallChart';
 import { ParsedData, Transaction, CategoryData, IncomeSource, FinanceStats } from '@/types/finance';
 import { parseFile } from '@/utils/fileParser';
 import { toast } from '@/hooks/use-toast';
@@ -312,29 +317,86 @@ const Index = () => {
         {!data ? (
           <UploadArea onFilesUpload={handleFilesUpload} isLoading={isLoading} />
         ) : (
-          <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+          <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500 space-y-4 md:space-y-6">
             {/* Source files indicator */}
             {data.sourceFiles && data.sourceFiles.length > 1 && (
-              <div className="mb-4 p-2 rounded-lg bg-muted/50 text-center">
+              <div className="p-2 rounded-lg bg-muted/50 text-center">
                 <p className="text-[10px] md:text-xs text-muted-foreground">
                   Combined data from {data.sourceFiles.length} files
                 </p>
               </div>
             )}
             
+            {/* Primary: Always visible stats */}
             <StatsGrid stats={data.stats} incomeSources={data.incomeSources} />
             
-            <SpendingTrends transactions={data.transactions} stats={data.stats} />
+            {/* Primary: Money Flow - always open */}
+            <AnalysisSection 
+              title="Money Flow" 
+              subtitle="Income vs expenses breakdown"
+              defaultOpen={true}
+              priority="primary"
+            >
+              <WaterfallChart 
+                transactions={data.transactions} 
+                stats={data.stats} 
+                categories={data.categories}
+              />
+            </AnalysisSection>
             
-            <BehaviorInsights transactions={data.transactions} stats={data.stats} />
+            {/* Primary: Spending Patterns - always open */}
+            <AnalysisSection 
+              title="Spending Patterns" 
+              subtitle="When and how you spend"
+              defaultOpen={true}
+              priority="primary"
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+                <SpendingVelocity transactions={data.transactions} stats={data.stats} />
+                <ImpulseScore transactions={data.transactions} stats={data.stats} />
+              </div>
+              <SpendingHeatmap transactions={data.transactions} stats={data.stats} />
+            </AnalysisSection>
             
+            {/* Secondary: Trends - collapsed by default */}
+            <AnalysisSection 
+              title="Trends Over Time" 
+              subtitle="Monthly and weekly patterns"
+              defaultOpen={false}
+            >
+              <SpendingTrends transactions={data.transactions} stats={data.stats} />
+            </AnalysisSection>
+            
+            {/* Secondary: Behavior Insights */}
+            <AnalysisSection 
+              title="Behavior Insights" 
+              subtitle="Merchants, transaction sizes, and habits"
+              defaultOpen={false}
+            >
+              <BehaviorInsights transactions={data.transactions} stats={data.stats} />
+            </AnalysisSection>
+            
+            {/* Secondary: Category Breakdown */}
             {data.categories.length > 0 && (
               <>
-                <SankeyDiagram 
-                  categories={data.categories} 
-                  stats={data.stats} 
-                />
-                <CategoryBreakdown categories={data.categories} stats={data.stats} />
+                <AnalysisSection 
+                  title="Spending Flow" 
+                  subtitle="Visual breakdown by category"
+                  defaultOpen={false}
+                >
+                  <SankeyDiagram 
+                    categories={data.categories} 
+                    stats={data.stats} 
+                  />
+                </AnalysisSection>
+                
+                <AnalysisSection 
+                  title="Category Details" 
+                  subtitle="Deep dive into each category"
+                  defaultOpen={false}
+                >
+                  <CategoryBreakdown categories={data.categories} stats={data.stats} />
+                </AnalysisSection>
               </>
             )}
           </div>
