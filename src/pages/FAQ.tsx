@@ -109,8 +109,7 @@ const FAQ = () => {
             </AccordionTrigger>
             <AccordionContent className="text-sm text-muted-foreground pb-4">
               Yes, the tool is completely free to use. There are no hidden fees, 
-              no premium tiers, and no account required. We believe everyone should 
-              have access to understand their finances.
+              no premium tiers, and no account required.
             </AccordionContent>
           </AccordionItem>
           

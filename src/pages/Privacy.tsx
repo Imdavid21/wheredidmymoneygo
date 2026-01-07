@@ -32,12 +32,12 @@ const Privacy = () => {
             <h2 className="text-lg font-medium mb-3">How the tool works</h2>
             <div className="text-sm text-muted-foreground space-y-3">
               <p>
-                When you upload a file, it's processed entirely in your browser first. 
+                When you upload a file, it is processed entirely in your browser first. 
                 For complex formats like PDFs, we send the text content (not the file itself) 
                 to our AI for analysis. The AI extracts transactions, categories, and currency information.
               </p>
               <p>
-                Once analysis is complete, all data exists only in your browser's memory. 
+                Once analysis is complete, all data exists only in your browser memory. 
                 Refreshing or closing the page permanently deletes everything.
               </p>
             </div>
@@ -67,30 +67,36 @@ const Privacy = () => {
           </section>
 
           <section>
-            <h2 className="text-lg font-medium mb-3">AI processing & data handling</h2>
+            <h2 className="text-lg font-medium mb-3">AI processing and data handling</h2>
             <div className="text-sm text-muted-foreground space-y-3">
               <p>
                 Our AI analysis runs on secure, stateless infrastructure. Each request is processed 
                 independently with no memory of previous requests. The AI receives only the text 
-                content needed for analysis—never your original files.
+                content needed for analysis, never your original files.
               </p>
               <p>
                 AI processing is ephemeral: data is discarded immediately after generating your 
-                analysis results. There's no training on your data, no storage, no retention.
+                analysis results. There is no training on your data, no storage, no retention.
               </p>
             </div>
           </section>
 
           <section>
-            <h2 className="text-lg font-medium mb-3">Tracking & cookies</h2>
+            <h2 className="text-lg font-medium mb-3">Tracking and cookies</h2>
             <div className="text-sm text-muted-foreground space-y-3">
-              <p>
-                We use minimal, privacy-respecting analytics to understand how the tool is used. 
-                We don't use advertising trackers, don't sell data, and don't build user profiles.
-              </p>
-              <p>
-                Essential cookies may be used for basic functionality. No third-party tracking 
-                cookies are placed.
+              <p className="font-medium text-foreground">What we DO NOT use:</p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Google Analytics</li>
+                <li>Facebook Pixel</li>
+                <li>Retargeting or remarketing</li>
+                <li>Tracking cookies of any kind</li>
+                <li>Third-party analytics services</li>
+                <li>User profiling or fingerprinting</li>
+              </ul>
+              <p className="mt-4">
+                We may use basic, privacy-respecting analytics to count page views. 
+                This collects no personal data, no IP addresses, and no device identifiers. 
+                Just simple counts to understand if the tool is being used.
               </p>
             </div>
           </section>
@@ -110,12 +116,8 @@ const Privacy = () => {
             <h2 className="text-lg font-medium mb-3">Your rights</h2>
             <div className="text-sm text-muted-foreground space-y-3">
               <p>
-                Since we don't store any of your personal data, there's nothing to delete, 
+                Since we do not store any of your personal data, there is nothing to delete, 
                 export, or modify. Your data remains entirely under your control at all times.
-              </p>
-              <p>
-                If you have any privacy concerns or questions, you can reach us through our 
-                feedback channels.
               </p>
             </div>
           </section>
