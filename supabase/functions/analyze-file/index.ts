@@ -25,13 +25,27 @@ EXTRACT:
 2. Balance information:
    - For credit cards: creditLimit, creditUsed, availableCredit
    - For bank/other: openingBalance, closingBalance
-3. Currency code (USD, EUR, GBP, INR, JPY, CAD, AUD, etc.)
+3. Currency code (USD, EUR, GBP, INR, JPY, CAD, AUD, ZAR, etc.)
 4. Create custom expense categories based on the actual spending patterns
 5. ALL transactions with:
    - date (ISO format YYYY-MM-DD)
-   - description (clean merchant name)
+   - description (ACTUAL MERCHANT NAME - see guidelines below)
    - amount (positive = income, negative = expense)
    - category (assign to one of your custom categories, or "Income" for deposits)
+
+MERCHANT NAME EXTRACTION (CRITICAL):
+- Extract the ACTUAL merchant/business name, not the raw transaction code
+- Remove prefixes like "POS", "VISA", "MASTERCARD", "DEBIT", "PURCHASE", "CARD"
+- Remove suffixes like city names, reference numbers, dates, card numbers
+- Normalize names: "STARBUCKS #12345 NYC" → "Starbucks"
+- Recognize common merchants: "AMZN MKTP US*AB1C2D3" → "Amazon"
+- Clean payment processors: "SQ *COFFEE SHOP" → "Coffee Shop"
+- Handle international formats: "UBER *EATS PENDING" → "Uber Eats"
+- Examples:
+  - "POS DEBIT VISA-WALMART #1234 ATLANTA GA" → "Walmart"
+  - "SPOTIFY P123ABC456" → "Spotify"
+  - "PAYPAL *NETFLIX" → "Netflix"
+  - "TST* SHAKE SHACK 1234" → "Shake Shack"
 
 CATEGORY GUIDELINES:
 - Create 5-12 meaningful categories based on actual spending patterns
@@ -51,9 +65,9 @@ Respond with ONLY valid JSON:
   },
   "categories": ["Groceries", "Dining Out", "Streaming Services", "Software Subscriptions", "Transport", "Shopping"],
   "transactions": [
-    {"date": "2024-01-15", "description": "NETFLIX.COM", "amount": -15.99, "category": "Streaming Services"},
-    {"date": "2024-01-15", "description": "AMAZON.COM", "amount": -49.99, "category": "Shopping"},
-    {"date": "2024-01-16", "description": "PAYROLL", "amount": 2500.00, "category": "Income"}
+    {"date": "2024-01-15", "description": "Netflix", "amount": -15.99, "category": "Streaming Services"},
+    {"date": "2024-01-15", "description": "Amazon", "amount": -49.99, "category": "Shopping"},
+    {"date": "2024-01-16", "description": "Salary - Acme Corp", "amount": 2500.00, "category": "Income"}
   ]
 }`;
 
