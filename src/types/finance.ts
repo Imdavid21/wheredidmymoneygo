@@ -51,6 +51,34 @@ export interface ParsedData {
   categories: CategoryData[];
   incomeSources: IncomeSource[];
   stats: FinanceStats;
+  sourceFiles?: string[];
+}
+
+export interface DailySpending {
+  date: string;
+  amount: number;
+  dayOfWeek: string;
+}
+
+export interface WeekdayPattern {
+  day: string;
+  average: number;
+  total: number;
+  count: number;
+}
+
+export interface MonthlyTrend {
+  month: string;
+  income: number;
+  expenses: number;
+  net: number;
+}
+
+export interface TopMerchant {
+  name: string;
+  total: number;
+  count: number;
+  avgTransaction: number;
 }
 
 export interface AIAnalysisResult {
