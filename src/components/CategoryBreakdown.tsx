@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { CategoryData } from '@/types/finance';
-import { cn } from '@/lib/utils';
+import { CategoryData, FinanceStats } from '@/types/finance';
 import {
   Collapsible,
   CollapsibleContent,
@@ -9,21 +8,30 @@ import {
 
 interface CategoryBreakdownProps {
   categories: CategoryData[];
+  stats: FinanceStats;
 }
 
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount);
-};
-
-const CategoryCard = ({ category, maxTotal }: { category: CategoryData; maxTotal: number }) => {
+const CategoryCard = ({ 
+  category, 
+  maxTotal,
+  currency 
+}: { 
+  category: CategoryData; 
+  maxTotal: number;
+  currency: string;
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const progressWidth = (category.total / maxTotal) * 100;
   const topTransactions = category.transactions.slice(0, 5);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
 
   const colorMatch = category.color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
   let accentColor = category.color;
@@ -102,8 +110,9 @@ const CategoryCard = ({ category, maxTotal }: { category: CategoryData; maxTotal
   );
 };
 
-const CategoryBreakdown = ({ categories }: CategoryBreakdownProps) => {
+const CategoryBreakdown = ({ categories, stats }: CategoryBreakdownProps) => {
   const maxTotal = Math.max(...categories.map(c => c.total));
+  const currency = stats.currency || 'USD';
 
   return (
     <div>
@@ -117,6 +126,7 @@ const CategoryBreakdown = ({ categories }: CategoryBreakdownProps) => {
             key={category.name} 
             category={category} 
             maxTotal={maxTotal}
+            currency={currency}
           />
         ))}
       </div>

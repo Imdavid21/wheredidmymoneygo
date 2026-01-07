@@ -22,10 +22,20 @@ export interface FinanceStats {
   recurringCharges: number;
   recurringCount: number;
   avgPerTransaction: number;
+  currency: string;
 }
 
 export interface ParsedData {
   transactions: Transaction[];
   categories: CategoryData[];
   stats: FinanceStats;
+}
+
+export interface AIAnalysisResult {
+  currency: string;
+  transactions: {
+    date: string;
+    description: string;
+    amount: number;
+  }[];
 }

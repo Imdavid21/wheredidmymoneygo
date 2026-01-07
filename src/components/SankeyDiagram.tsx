@@ -24,27 +24,6 @@ interface NodeBounds {
   isIncome?: boolean;
 }
 
-const formatCurrency = (amount: number) => {
-  if (amount >= 1000) {
-    return `$${(amount / 1000).toFixed(1)}k`;
-  }
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(amount);
-};
-
-const formatCurrencyFull = (amount: number) => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount);
-};
-
 const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -52,6 +31,35 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
   const [nodeBounds, setNodeBounds] = useState<NodeBounds[]>([]);
   const [isHovering, setIsHovering] = useState(false);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const currency = stats.currency || 'USD';
+
+  const formatCurrency = useCallback((amount: number) => {
+    if (amount >= 1000) {
+      const formatted = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      }).format(amount / 1000);
+      return formatted.replace(/\.0$/, '') + 'k';
+    }
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  }, [currency]);
+
+  const formatCurrencyFull = useCallback((amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  }, [currency]);
 
   const calculateHeight = useCallback(() => {
     const minHeight = 300;
@@ -252,7 +260,7 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     }
 
     setNodeBounds(bounds);
-  }, [categories, stats, calculateHeight]);
+  }, [categories, stats, calculateHeight, formatCurrency]);
 
   useEffect(() => {
     draw();
@@ -314,7 +322,7 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
       setIsHovering(false);
       setTooltip(null);
     }
-  }, [nodeBounds, stats.totalSpent]);
+  }, [nodeBounds, stats.totalSpent, formatCurrencyFull]);
 
   const handleMouseLeave = useCallback(() => {
     setIsHovering(false);
