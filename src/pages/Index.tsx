@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
 import UploadArea from '@/components/UploadArea';
+import QuickInsights from '@/components/QuickInsights';
 import StatsGrid from '@/components/StatsGrid';
 import SankeyDiagram from '@/components/SankeyDiagram';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
@@ -321,6 +322,8 @@ const Index = () => {
                 </p>
               </div>
             )}
+            
+            <QuickInsights transactions={data.transactions} stats={data.stats} />
             
             <StatsGrid stats={data.stats} incomeSources={data.incomeSources} />
             
