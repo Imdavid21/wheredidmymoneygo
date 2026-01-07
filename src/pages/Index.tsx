@@ -6,6 +6,8 @@ import SankeyDiagram from '@/components/SankeyDiagram';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
 import SpendingTrends from '@/components/SpendingTrends';
 import BehaviorInsights from '@/components/BehaviorInsights';
+import PrivacySection from '@/components/PrivacySection';
+import FAQSection from '@/components/FAQSection';
 import { ParsedData, Transaction, CategoryData, IncomeSource, FinanceStats } from '@/types/finance';
 import { parseFile } from '@/utils/fileParser';
 import { toast } from '@/hooks/use-toast';
@@ -339,16 +341,23 @@ const Index = () => {
           </div>
         )}
 
-        <footer className="mt-12 pt-6 border-t border-border space-y-2">
-          <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-            <span>Your data is never stored. Files are analyzed and immediately discarded.</span>
+        <footer className="mt-12 pt-8 border-t border-border">
+          <div className="grid md:grid-cols-2 gap-8 mb-8">
+            <PrivacySection />
+            <FAQSection />
           </div>
-          <p className="text-[10px] text-muted-foreground/60 text-center">
-            AI processing happens in a secure, stateless environment. No data is retained after analysis.
-          </p>
+          
+          <div className="pt-6 border-t border-border/50 space-y-2">
+            <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <span>Your data is never stored. Files are analyzed and immediately discarded.</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 text-center">
+              Built with privacy in mind. No accounts, no tracking, no data retention.
+            </p>
+          </div>
         </footer>
       </div>
     </div>
