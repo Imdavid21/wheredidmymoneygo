@@ -26,18 +26,19 @@ EXTRACT:
    - For credit cards: creditLimit, creditUsed, availableCredit
    - For bank/other: openingBalance, closingBalance
 3. Currency code (USD, EUR, GBP, INR, JPY, CAD, AUD, etc.)
-4. Create custom expense categories based on the actual spending patterns (e.g., "Groceries", "Dining Out", "Online Shopping", "Streaming Services", "Fuel", "Rent", etc.)
+4. Create custom expense categories based on the actual spending patterns
 5. ALL transactions with:
    - date (ISO format YYYY-MM-DD)
    - description (clean merchant name)
    - amount (positive = income, negative = expense)
    - category (assign to one of your custom categories, or "Income" for deposits)
 
-RULES:
+CATEGORY GUIDELINES:
 - Create 5-12 meaningful categories based on actual spending patterns
-- Be specific with categories (e.g., "Coffee & Cafes" instead of generic "Food")
-- Detect currency from symbols or context
-- Extract every transaction found
+- SUBSCRIPTIONS: Netflix, Spotify, Disney+, HBO Max, Hulu, Amazon Prime, YouTube Premium, Apple Music, iCloud, Google One, Dropbox, Adobe, Microsoft 365, gym memberships, Patreon, Substack, any recurring monthly/yearly charges
+- Distinguish between one-time purchases and recurring subscriptions
+- Be specific: "Coffee & Cafes" not just "Food", "Streaming Services" not just "Subscriptions"
+- Common subscription keywords: recurring, monthly, annual, subscription, membership, premium, pro, plus
 
 Respond with ONLY valid JSON:
 {
@@ -48,8 +49,9 @@ Respond with ONLY valid JSON:
     "creditUsed": 3500,
     "availableCredit": 6500
   },
-  "categories": ["Groceries", "Dining Out", "Subscriptions", "Transport", "Shopping"],
+  "categories": ["Groceries", "Dining Out", "Streaming Services", "Software Subscriptions", "Transport", "Shopping"],
   "transactions": [
+    {"date": "2024-01-15", "description": "NETFLIX.COM", "amount": -15.99, "category": "Streaming Services"},
     {"date": "2024-01-15", "description": "AMAZON.COM", "amount": -49.99, "category": "Shopping"},
     {"date": "2024-01-16", "description": "PAYROLL", "amount": 2500.00, "category": "Income"}
   ]

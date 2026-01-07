@@ -45,18 +45,18 @@ const CategoryCard = ({
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <div className="rounded-lg border border-border bg-card overflow-hidden hover:bg-muted/20 transition-colors">
         <CollapsibleTrigger className="w-full text-left">
-          <div className="p-4">
-            <div className="flex items-start justify-between gap-3 mb-3">
-              <div className="flex items-center gap-2 min-w-0">
+          <div className="p-3 md:p-4">
+            <div className="flex items-start justify-between gap-2 md:gap-3 mb-2 md:mb-3">
+              <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
                 <div 
-                  className="w-2 h-2 rounded-full shrink-0" 
+                  className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full shrink-0" 
                   style={{ backgroundColor: accentColor }}
                 />
-                <span className="text-sm font-medium truncate">{category.name}</span>
+                <span className="text-xs md:text-sm font-medium truncate">{category.name}</span>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-sm font-semibold">{formatCurrency(category.total)}</p>
-                <p className="text-[10px] text-muted-foreground">{category.percentage.toFixed(1)}%</p>
+                <p className="text-xs md:text-sm font-semibold">{formatCurrency(category.total)}</p>
+                <p className="text-[9px] md:text-[10px] text-muted-foreground">{category.percentage.toFixed(1)}%</p>
               </div>
             </div>
             
@@ -70,25 +70,25 @@ const CategoryCard = ({
               />
             </div>
             
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-[10px] text-muted-foreground">
-                {category.transactions.length} transaction{category.transactions.length !== 1 ? 's' : ''}
+            <div className="flex items-center justify-between mt-1.5 md:mt-2">
+              <span className="text-[9px] md:text-[10px] text-muted-foreground">
+                {category.transactions.length} txn{category.transactions.length !== 1 ? 's' : ''}
               </span>
-              <span className="text-[10px] text-muted-foreground">
-                {isOpen ? 'Hide' : 'Show'} details
+              <span className="text-[9px] md:text-[10px] text-muted-foreground">
+                {isOpen ? 'Hide' : 'Details'}
               </span>
             </div>
           </div>
         </CollapsibleTrigger>
         
         <CollapsibleContent>
-          <div className="px-4 pb-4 border-t border-border pt-3">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-2">
+          <div className="px-3 md:px-4 pb-3 md:pb-4 border-t border-border pt-2 md:pt-3">
+            <p className="text-[9px] md:text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5 md:mb-2">
               Top transactions
             </p>
-            <div className="space-y-1.5">
+            <div className="space-y-1 md:space-y-1.5">
               {topTransactions.map((txn, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs gap-2">
+                <div key={idx} className="flex items-center justify-between text-[10px] md:text-xs gap-2">
                   <span className="truncate text-muted-foreground">
                     {txn.description}
                   </span>
@@ -98,7 +98,7 @@ const CategoryCard = ({
                 </div>
               ))}
               {category.transactions.length > 5 && (
-                <p className="text-[10px] text-muted-foreground pt-1">
+                <p className="text-[9px] md:text-[10px] text-muted-foreground pt-0.5 md:pt-1">
                   +{category.transactions.length - 5} more
                 </p>
               )}
@@ -116,11 +116,11 @@ const CategoryBreakdown = ({ categories, stats }: CategoryBreakdownProps) => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium">Categories</h2>
-        <span className="text-xs text-muted-foreground">Click to expand</span>
+      <div className="flex items-center justify-between mb-2 md:mb-3">
+        <h2 className="text-xs md:text-sm font-medium">Categories</h2>
+        <span className="text-[10px] md:text-xs text-muted-foreground">Tap to expand</span>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
         {categories.map((category) => (
           <CategoryCard 
             key={category.name} 
