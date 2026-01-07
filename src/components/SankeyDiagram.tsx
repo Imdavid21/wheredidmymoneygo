@@ -330,10 +330,10 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
   }, []);
 
   return (
-    <div className="mb-8">
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium">Flow</h2>
-        <span className="text-xs text-muted-foreground">{categories.length} categories</span>
+    <div className="mb-6 md:mb-8">
+      <div className="flex items-center justify-between mb-2 md:mb-3">
+        <h2 className="text-xs md:text-sm font-medium">Flow</h2>
+        <span className="text-[10px] md:text-xs text-muted-foreground">{categories.length} categories</span>
       </div>
       <div 
         ref={containerRef} 
