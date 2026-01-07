@@ -9,6 +9,7 @@ import BehaviorInsights from '@/components/BehaviorInsights';
 import { ParsedData, Transaction, CategoryData, IncomeSource, FinanceStats } from '@/types/finance';
 import { parseFile } from '@/utils/fileParser';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 function generateCategoryColor(index: number, total: number): string {
   // Softer, more muted pastel palette
@@ -16,7 +17,82 @@ function generateCategoryColor(index: number, total: number): string {
   return `hsl(${hue}, 35%, 65%)`;
 }
 
-function mergeData(results: ParsedData[]): ParsedData {
+interface ParsedDataWithCurrency extends ParsedData {
+  originalCurrency?: string;
+}
+
+async function convertCurrencies(
+  results: ParsedDataWithCurrency[],
+  targetCurrency: string
+): Promise<ParsedDataWithCurrency[]> {
+  // Collect all amounts that need conversion
+  const conversionsNeeded: { amount: number; currency: string; resultIdx: number; txnIdx: number }[] = [];
+  
+  results.forEach((result, resultIdx) => {
+    const sourceCurrency = result.stats.currency || 'USD';
+    if (sourceCurrency !== targetCurrency) {
+      result.transactions.forEach((txn, txnIdx) => {
+        conversionsNeeded.push({
+          amount: txn.amount,
+          currency: sourceCurrency,
+          resultIdx,
+          txnIdx
+        });
+      });
+    }
+  });
+  
+  if (conversionsNeeded.length === 0) {
+    return results;
+  }
+  
+  try {
+    const { data, error } = await supabase.functions.invoke('convert-currency', {
+      body: {
+        amounts: conversionsNeeded.map(c => c.amount),
+        fromCurrencies: conversionsNeeded.map(c => c.currency),
+        toCurrency: targetCurrency
+      }
+    });
+    
+    if (error || !data?.convertedAmounts) {
+      console.error('Currency conversion failed:', error);
+      return results;
+    }
+    
+    // Apply conversions
+    const convertedResults = results.map((result, resultIdx) => {
+      const sourceCurrency = result.stats.currency || 'USD';
+      if (sourceCurrency === targetCurrency) {
+        return { ...result, originalCurrency: sourceCurrency };
+      }
+      
+      const newTransactions = result.transactions.map((txn, txnIdx) => {
+        const conversionIdx = conversionsNeeded.findIndex(
+          c => c.resultIdx === resultIdx && c.txnIdx === txnIdx
+        );
+        if (conversionIdx !== -1) {
+          return { ...txn, amount: data.convertedAmounts[conversionIdx] };
+        }
+        return txn;
+      });
+      
+      return {
+        ...result,
+        transactions: newTransactions,
+        originalCurrency: sourceCurrency,
+        stats: { ...result.stats, currency: targetCurrency }
+      };
+    });
+    
+    return convertedResults;
+  } catch (e) {
+    console.error('Currency conversion error:', e);
+    return results;
+  }
+}
+
+function mergeData(results: ParsedDataWithCurrency[]): ParsedData {
   // Merge all transactions
   const allTransactions: Transaction[] = [];
   const allSourceFiles: string[] = [];
@@ -30,14 +106,8 @@ function mergeData(results: ParsedData[]): ParsedData {
     }
   });
 
-  // Detect primary currency (most common)
-  const currencyCounts = new Map<string, number>();
-  results.forEach(r => {
-    const curr = r.stats.currency || 'USD';
-    currencyCounts.set(curr, (currencyCounts.get(curr) || 0) + r.transactions.length);
-  });
-  const primaryCurrency = Array.from(currencyCounts.entries())
-    .sort((a, b) => b[1] - a[1])[0]?.[0] || 'USD';
+  // Use the target currency (should be uniform after conversion)
+  const primaryCurrency = results[0]?.stats.currency || 'USD';
 
   // Recalculate categories
   const incomeTransactions = allTransactions.filter(t => t.isIncome);
@@ -157,10 +227,10 @@ const Index = () => {
     try {
       // Parse all files in parallel
       const results = await Promise.all(
-        files.map(async (file): Promise<ParsedData | null> => {
+        files.map(async (file): Promise<ParsedDataWithCurrency | null> => {
           try {
             const result = await parseFile(file);
-            return { ...result, sourceFiles: [file.name] };
+            return { ...result, sourceFiles: [file.name], originalCurrency: result.stats.currency };
           } catch (e) {
             console.error(`Failed to parse ${file.name}:`, e);
             return null;
@@ -169,8 +239,8 @@ const Index = () => {
       );
       
       // Filter out failed parses
-      const successfulResults = results.filter(
-        (r): r is ParsedData => r !== null && r.transactions.length > 0
+      let successfulResults = results.filter(
+        (r): r is ParsedDataWithCurrency => r !== null && r.transactions.length > 0
       );
       
       if (successfulResults.length === 0) {
@@ -183,6 +253,28 @@ const Index = () => {
         return;
       }
 
+      // Check for multiple currencies
+      const currencies = new Set(successfulResults.map(r => r.stats.currency || 'USD'));
+      
+      if (currencies.size > 1) {
+        // Find the most used currency (by transaction count)
+        const currencyCounts = new Map<string, number>();
+        successfulResults.forEach(r => {
+          const curr = r.stats.currency || 'USD';
+          currencyCounts.set(curr, (currencyCounts.get(curr) || 0) + r.transactions.length);
+        });
+        const targetCurrency = Array.from(currencyCounts.entries())
+          .sort((a, b) => b[1] - a[1])[0]?.[0] || 'USD';
+        
+        toast({
+          title: "Converting currencies",
+          description: `Multiple currencies detected. Converting to ${targetCurrency} using live rates.`
+        });
+        
+        // Convert all transactions to target currency
+        successfulResults = await convertCurrencies(successfulResults, targetCurrency);
+      }
+
       // Merge all results
       const mergedData = successfulResults.length === 1 
         ? successfulResults[0] 
@@ -191,9 +283,10 @@ const Index = () => {
       setData(mergedData);
       
       const failedCount = files.length - successfulResults.length;
+      const currencyNote = currencies.size > 1 ? ` (converted to ${mergedData.stats.currency})` : '';
       toast({
         title: "Analysis complete",
-        description: `${mergedData.transactions.length} transactions across ${mergedData.categories.length} categories${failedCount > 0 ? ` (${failedCount} file${failedCount > 1 ? 's' : ''} failed)` : ''}`
+        description: `${mergedData.transactions.length} transactions across ${mergedData.categories.length} categories${currencyNote}${failedCount > 0 ? ` (${failedCount} file${failedCount > 1 ? 's' : ''} failed)` : ''}`
       });
     } catch (error) {
       toast({

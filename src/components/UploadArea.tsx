@@ -26,8 +26,8 @@ const UploadArea = ({ onFilesUpload, isLoading }: UploadAreaProps) => {
     const filesArray = Array.from(newFiles);
     setSelectedFiles(prev => {
       const combined = [...prev, ...filesArray];
-      // Limit to 5 files
-      return combined.slice(0, 5);
+      // Limit to 10 files
+      return combined.slice(0, 10);
     });
   }, []);
 
@@ -112,7 +112,7 @@ const UploadArea = ({ onFilesUpload, isLoading }: UploadAreaProps) => {
               {isLoading ? 'Analyzing with AI...' : 'Drop your bank statements'}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              CSV, XLSX, or PDF • Up to 5 files
+              CSV, XLSX, or PDF • Up to 10 files
             </p>
           </div>
           
@@ -132,9 +132,15 @@ const UploadArea = ({ onFilesUpload, isLoading }: UploadAreaProps) => {
             <p className="text-xs text-muted-foreground">
               {selectedFiles.length} file{selectedFiles.length !== 1 ? 's' : ''} selected
             </p>
-            <p className="text-[10px] text-muted-foreground">
-              {5 - selectedFiles.length} more allowed
-            </p>
+            <button
+              onClick={handleClick}
+              className="text-xs text-primary hover:text-primary/80 font-medium transition-colors flex items-center gap-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Add more files ({10 - selectedFiles.length} left)
+            </button>
           </div>
           
           <div className="space-y-2">
