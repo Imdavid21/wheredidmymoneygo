@@ -97,8 +97,9 @@ function categorizeTransactionFallback(description: string): string {
 }
 
 function generateCategoryColor(index: number, total: number): string {
+  // Softer, more muted pastel palette
   const hue = (index * 360 / Math.max(total, 1)) % 360;
-  return `hsl(${hue}, 55%, 60%)`;
+  return `hsl(${hue}, 35%, 65%)`;
 }
 
 function findField(row: Record<string, string>, fieldNames: string[]): string | undefined {
