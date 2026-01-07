@@ -20,28 +20,47 @@ const StatsGrid = ({ stats, incomeSources }: StatsGridProps) => {
   const isCreditCard = balanceInfo?.type === 'credit_card';
   const isBank = balanceInfo?.type === 'bank';
 
-  const statCards = [
-    {
-      label: 'Income',
-      value: formatCurrency(stats.totalIncome),
-      subtext: `${stats.incomeCount} deposits`
-    },
-    {
-      label: 'Spent',
-      value: formatCurrency(stats.totalSpent),
-      subtext: `${stats.spentCount} transactions`
-    },
-    {
-      label: 'Recurring',
-      value: formatCurrency(stats.recurringCharges),
-      subtext: `${stats.recurringCount} subscriptions`
-    },
-    {
-      label: 'Average',
-      value: formatCurrency(stats.avgPerTransaction),
-      subtext: 'per transaction'
-    }
-  ];
+  // For credit cards, don't show income stats
+  const statCards = isCreditCard
+    ? [
+        {
+          label: 'Total Charges',
+          value: formatCurrency(stats.totalSpent),
+          subtext: `${stats.spentCount} transactions`
+        },
+        {
+          label: 'Recurring',
+          value: formatCurrency(stats.recurringCharges),
+          subtext: `${stats.recurringCount} subscriptions`
+        },
+        {
+          label: 'Average',
+          value: formatCurrency(stats.avgPerTransaction),
+          subtext: 'per transaction'
+        }
+      ]
+    : [
+        {
+          label: 'Income',
+          value: formatCurrency(stats.totalIncome),
+          subtext: `${stats.incomeCount} deposits`
+        },
+        {
+          label: 'Spent',
+          value: formatCurrency(stats.totalSpent),
+          subtext: `${stats.spentCount} transactions`
+        },
+        {
+          label: 'Recurring',
+          value: formatCurrency(stats.recurringCharges),
+          subtext: `${stats.recurringCount} subscriptions`
+        },
+        {
+          label: 'Average',
+          value: formatCurrency(stats.avgPerTransaction),
+          subtext: 'per transaction'
+        }
+      ];
 
   const creditUsagePercent = isCreditCard && balanceInfo.creditLimit 
     ? ((balanceInfo.creditUsed || 0) / balanceInfo.creditLimit) * 100 
@@ -124,8 +143,8 @@ const StatsGrid = ({ stats, incomeSources }: StatsGridProps) => {
         ))}
       </div>
 
-      {/* Income Sources */}
-      {incomeSources.length > 0 && (
+      {/* Income Sources - only show for bank statements with income */}
+      {!isCreditCard && incomeSources.length > 0 && (
         <div className="p-3 md:p-5 rounded-lg border border-border bg-card">
           <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-muted-foreground mb-2 md:mb-3">
             Income Sources
