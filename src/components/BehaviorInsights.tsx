@@ -107,8 +107,9 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
       results.push(`${topMerchants[0].name} is your most visited merchant (${topMerchants[0].count} visits)`);
     }
 
-    // Savings rate
-    if (incomes.length > 0 && stats.totalIncome > 0) {
+    // Savings rate - only for bank statements (not credit cards)
+    const isCreditCard = stats.balanceInfo?.type === 'credit_card';
+    if (!isCreditCard && incomes.length > 0 && stats.totalIncome > 0) {
       const savingsRate = ((stats.totalIncome - stats.totalSpent) / stats.totalIncome) * 100;
       if (savingsRate > 0) {
         results.push(`Your savings rate is ${savingsRate.toFixed(0)}%`);
