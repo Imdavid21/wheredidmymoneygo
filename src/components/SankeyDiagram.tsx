@@ -29,7 +29,7 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [nodeBounds, setNodeBounds] = useState<NodeBounds[]>([]);
-  const [isHovering, setIsHovering] = useState(false);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   const currency = stats.currency || 'USD';
@@ -62,9 +62,9 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
   }, [currency]);
 
   const calculateHeight = useCallback(() => {
-    const minHeight = 300;
-    const perCategoryHeight = 50;
-    const padding = 80;
+    const minHeight = 280;
+    const perCategoryHeight = 44;
+    const padding = 60;
     return Math.max(minHeight, categories.length * perCategoryHeight + padding);
   }, [categories.length]);
 
@@ -92,15 +92,15 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     ctx.clearRect(0, 0, width, height);
 
     const isMobile = width < 500;
-    const leftMargin = isMobile ? 16 : 24;
-    const rightMargin = isMobile ? 16 : 24;
-    const labelLeftWidth = isMobile ? 60 : 80;
-    const labelRightWidth = isMobile ? 80 : 120;
-    const nodeWidth = isMobile ? 8 : 12;
-    const minNodeHeight = 24;
-    const nodePadding = isMobile ? 8 : 12;
-    const cornerRadius = 2;
-    const verticalPadding = 40;
+    const leftMargin = isMobile ? 12 : 20;
+    const rightMargin = isMobile ? 12 : 20;
+    const labelLeftWidth = isMobile ? 70 : 90;
+    const labelRightWidth = isMobile ? 90 : 130;
+    const nodeWidth = isMobile ? 6 : 8;
+    const minNodeHeight = 20;
+    const nodePadding = isMobile ? 6 : 8;
+    const cornerRadius = nodeWidth / 2;
+    const verticalPadding = 30;
 
     const flowAreaLeft = leftMargin + labelLeftWidth;
     const flowAreaRight = width - rightMargin - labelRightWidth;
@@ -113,17 +113,19 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     const nodeAreaHeight = availableHeight - totalPaddingHeight;
 
     // Calculate category node heights
-    const categoryNodes: { y: number; height: number; category: CategoryData }[] = [];
+    const categoryNodes: { y: number; height: number; category: CategoryData; index: number }[] = [];
     let currentY = verticalPadding;
 
-    for (const category of categories) {
+    for (let i = 0; i < categories.length; i++) {
+      const category = categories[i];
       const proportion = category.total / stats.totalSpent;
       const nodeHeight = Math.max(minNodeHeight, proportion * nodeAreaHeight);
       
       categoryNodes.push({
         y: currentY,
         height: nodeHeight,
-        category
+        category,
+        index: i
       });
       
       currentY += nodeHeight + nodePadding;
@@ -146,8 +148,57 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
 
     const bounds: NodeBounds[] = [];
 
-    // Draw income node
-    ctx.fillStyle = 'hsl(0, 0%, 15%)';
+    // Draw flows first (behind nodes)
+    let incomeFlowY = incomeNodeY;
+
+    for (const node of categoryNodes) {
+      const flowHeight = (node.category.total / stats.totalSpent) * incomeNodeHeight;
+      const isHovered = hoveredIndex === node.index;
+      
+      // Parse category color
+      const colorMatch = node.category.color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+      const hue = colorMatch ? parseInt(colorMatch[1]) : 0;
+      
+      // Create gradient for flow
+      const gradient = ctx.createLinearGradient(incomeNodeX + nodeWidth, 0, categoryNodeX, 0);
+      const opacity = isHovered ? 0.4 : 0.18;
+      gradient.addColorStop(0, `hsla(${hue}, 40%, 50%, ${opacity})`);
+      gradient.addColorStop(0.5, `hsla(${hue}, 35%, 55%, ${opacity * 1.2})`);
+      gradient.addColorStop(1, `hsla(${hue}, 45%, 50%, ${opacity})`);
+
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      
+      const startX = incomeNodeX + nodeWidth;
+      const startY1 = incomeFlowY;
+      const startY2 = incomeFlowY + flowHeight;
+      
+      const endX = categoryNodeX;
+      const endY1 = node.y;
+      const endY2 = node.y + node.height;
+      
+      // Smoother bezier curves
+      const tension = 0.4;
+      const cpX1 = startX + (endX - startX) * tension;
+      const cpX2 = endX - (endX - startX) * tension;
+
+      ctx.moveTo(startX, startY1);
+      ctx.bezierCurveTo(cpX1, startY1, cpX2, endY1, endX, endY1);
+      ctx.lineTo(endX, endY2);
+      ctx.bezierCurveTo(cpX2, endY2, cpX1, startY2, startX, startY2);
+      ctx.closePath();
+      ctx.fill();
+
+      incomeFlowY += flowHeight;
+    }
+
+    // Draw source node (left side)
+    const sourceGradient = ctx.createLinearGradient(incomeNodeX, incomeNodeY, incomeNodeX, incomeNodeY + incomeNodeHeight);
+    sourceGradient.addColorStop(0, 'hsl(0, 0%, 20%)');
+    sourceGradient.addColorStop(0.5, 'hsl(0, 0%, 15%)');
+    sourceGradient.addColorStop(1, 'hsl(0, 0%, 20%)');
+    
+    ctx.fillStyle = sourceGradient;
     ctx.beginPath();
     ctx.roundRect(incomeNodeX, incomeNodeY, nodeWidth, incomeNodeHeight, cornerRadius);
     ctx.fill();
@@ -160,66 +211,31 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
       isIncome: true
     });
 
-    // Draw income label
-    ctx.fillStyle = 'hsl(0, 0%, 15%)';
-    ctx.font = `500 ${isMobile ? 11 : 12}px Inter, system-ui, sans-serif`;
+    // Source label
+    ctx.fillStyle = 'hsl(0, 0%, 20%)';
+    ctx.font = `600 ${isMobile ? 11 : 13}px Inter, system-ui, sans-serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Income', incomeNodeX - 8, incomeNodeY + incomeNodeHeight / 2 - 8);
+    ctx.fillText('Spending', incomeNodeX - 10, incomeNodeY + incomeNodeHeight / 2 - 10);
     
-    ctx.font = `400 ${isMobile ? 10 : 11}px Inter, system-ui, sans-serif`;
-    ctx.fillStyle = 'hsl(0, 0%, 50%)';
-    ctx.fillText(formatCurrency(stats.totalSpent), incomeNodeX - 8, incomeNodeY + incomeNodeHeight / 2 + 8);
-
-    // Draw flows
-    let incomeFlowY = incomeNodeY;
-
-    for (const node of categoryNodes) {
-      const flowHeight = (node.category.total / stats.totalSpent) * incomeNodeHeight;
-      
-      const colorMatch = node.category.color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-      let fillColor = 'hsla(0, 0%, 50%, 0.15)';
-      
-      if (colorMatch) {
-        const [, h, s] = colorMatch;
-        fillColor = `hsla(${h}, ${s}%, 55%, 0.25)`;
-      }
-
-      ctx.fillStyle = fillColor;
-      ctx.beginPath();
-      
-      const startX = incomeNodeX + nodeWidth;
-      const startY1 = incomeFlowY;
-      const startY2 = incomeFlowY + flowHeight;
-      
-      const endX = categoryNodeX;
-      const endY1 = node.y;
-      const endY2 = node.y + node.height;
-      
-      const cpX1 = startX + (endX - startX) * 0.5;
-      const cpX2 = startX + (endX - startX) * 0.5;
-
-      ctx.moveTo(startX, startY1);
-      ctx.bezierCurveTo(cpX1, startY1, cpX2, endY1, endX, endY1);
-      ctx.lineTo(endX, endY2);
-      ctx.bezierCurveTo(cpX2, endY2, cpX1, startY2, startX, startY2);
-      ctx.closePath();
-      ctx.fill();
-
-      incomeFlowY += flowHeight;
-    }
+    ctx.font = `500 ${isMobile ? 10 : 12}px Inter, system-ui, sans-serif`;
+    ctx.fillStyle = 'hsl(0, 0%, 45%)';
+    ctx.fillText(formatCurrency(stats.totalSpent), incomeNodeX - 10, incomeNodeY + incomeNodeHeight / 2 + 10);
 
     // Draw category nodes and labels
     for (const node of categoryNodes) {
+      const isHovered = hoveredIndex === node.index;
       const colorMatch = node.category.color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-      let nodeColor = 'hsl(0, 0%, 30%)';
+      const hue = colorMatch ? parseInt(colorMatch[1]) : 0;
       
-      if (colorMatch) {
-        const [, h] = colorMatch;
-        nodeColor = `hsl(${h}, 45%, 45%)`;
-      }
+      // Node gradient
+      const nodeGradient = ctx.createLinearGradient(categoryNodeX, node.y, categoryNodeX, node.y + node.height);
+      const lightness = isHovered ? 45 : 50;
+      nodeGradient.addColorStop(0, `hsl(${hue}, 50%, ${lightness}%)`);
+      nodeGradient.addColorStop(0.5, `hsl(${hue}, 45%, ${lightness - 5}%)`);
+      nodeGradient.addColorStop(1, `hsl(${hue}, 50%, ${lightness}%)`);
 
-      ctx.fillStyle = nodeColor;
+      ctx.fillStyle = nodeGradient;
       ctx.beginPath();
       ctx.roundRect(categoryNodeX, node.y, nodeWidth, node.height, cornerRadius);
       ctx.fill();
@@ -233,34 +249,41 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
       });
 
       // Labels
-      const labelX = categoryNodeX + nodeWidth + 8;
+      const labelX = categoryNodeX + nodeWidth + 12;
       const centerY = node.y + node.height / 2;
 
       // Truncate name if needed
-      const maxNameLength = isMobile ? 12 : 18;
+      const maxNameLength = isMobile ? 14 : 20;
       let displayName = node.category.name;
       if (displayName.length > maxNameLength) {
-        displayName = displayName.substring(0, maxNameLength - 2) + '..';
+        displayName = displayName.substring(0, maxNameLength - 1) + '…';
       }
 
-      ctx.fillStyle = 'hsl(0, 0%, 15%)';
-      ctx.font = `500 ${isMobile ? 10 : 11}px Inter, system-ui, sans-serif`;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
+      const textOpacity = isHovered ? 1 : 0.85;
       
-      if (node.height < 35) {
+      if (node.height < 32) {
         // Single line for small nodes
-        ctx.fillText(`${displayName} ${formatCurrency(node.category.total)}`, labelX, centerY);
+        ctx.fillStyle = `hsla(0, 0%, 20%, ${textOpacity})`;
+        ctx.font = `500 ${isMobile ? 10 : 11}px Inter, system-ui, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${displayName}  ${formatCurrency(node.category.total)}`, labelX, centerY);
       } else {
-        ctx.fillText(displayName, labelX, centerY - 7);
-        ctx.font = `400 ${isMobile ? 9 : 10}px Inter, system-ui, sans-serif`;
-        ctx.fillStyle = 'hsl(0, 0%, 50%)';
-        ctx.fillText(`${formatCurrency(node.category.total)} · ${node.category.percentage.toFixed(0)}%`, labelX, centerY + 8);
+        // Two lines
+        ctx.fillStyle = `hsla(0, 0%, 15%, ${textOpacity})`;
+        ctx.font = `600 ${isMobile ? 10 : 12}px Inter, system-ui, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(displayName, labelX, centerY - 8);
+        
+        ctx.font = `500 ${isMobile ? 9 : 11}px Inter, system-ui, sans-serif`;
+        ctx.fillStyle = `hsla(0, 0%, 45%, ${textOpacity})`;
+        ctx.fillText(`${formatCurrency(node.category.total)}  ·  ${node.category.percentage.toFixed(0)}%`, labelX, centerY + 9);
       }
     }
 
     setNodeBounds(bounds);
-  }, [categories, stats, calculateHeight, formatCurrency]);
+  }, [categories, stats, calculateHeight, formatCurrency, hoveredIndex]);
 
   useEffect(() => {
     draw();
@@ -268,7 +291,7 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     let resizeTimeout: ReturnType<typeof setTimeout>;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(draw, 150);
+      resizeTimeout = setTimeout(draw, 100);
     };
 
     window.addEventListener('resize', handleResize);
@@ -287,21 +310,25 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     const y = e.clientY - rect.top;
 
     let foundNode: NodeBounds | null = null;
+    let foundIndex: number | null = null;
 
-    for (const node of nodeBounds) {
+    for (let i = 0; i < nodeBounds.length; i++) {
+      const node = nodeBounds[i];
       if (
-        x >= node.x - 10 &&
-        x <= node.x + node.width + 10 &&
-        y >= node.y &&
-        y <= node.y + node.height
+        x >= node.x - 15 &&
+        x <= node.x + node.width + 15 &&
+        y >= node.y - 5 &&
+        y <= node.y + node.height + 5
       ) {
         foundNode = node;
+        foundIndex = node.isIncome ? null : i - 1; // Account for income node at index 0
         break;
       }
     }
 
+    setHoveredIndex(foundIndex);
+
     if (foundNode) {
-      setIsHovering(true);
       if (foundNode.isIncome) {
         setTooltip({
           x: e.clientX,
@@ -319,49 +346,54 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
         });
       }
     } else {
-      setIsHovering(false);
       setTooltip(null);
     }
   }, [nodeBounds, stats.totalSpent, formatCurrencyFull]);
 
   const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
+    setHoveredIndex(null);
     setTooltip(null);
   }, []);
 
   return (
     <div className="mb-6 md:mb-8">
-      <div className="flex items-center justify-between mb-2 md:mb-3">
-        <h2 className="text-xs md:text-sm font-medium">Money Flow</h2>
-        <span className="text-[10px] md:text-xs text-muted-foreground">{categories.length} categories</span>
-      </div>
-      <div 
-        ref={containerRef} 
-        className="relative rounded-lg border border-border bg-card overflow-hidden"
-      >
-        <canvas
-          ref={canvasRef}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
-          className={cn("w-full", isHovering && "cursor-pointer")}
-          style={{ height: dimensions.height || calculateHeight() }}
-        />
-        
-        {tooltip && (
-          <div
-            className="fixed z-50 px-2.5 py-1.5 bg-foreground text-background text-xs rounded shadow-lg pointer-events-none"
-            style={{
-              left: Math.min(tooltip.x + 12, window.innerWidth - 150),
-              top: tooltip.y + 12
-            }}
-          >
-            <p className="font-medium">{tooltip.label}</p>
-            <p className="text-background/80">{tooltip.amount}</p>
-            {tooltip.percentage && (
-              <p className="text-background/60">{tooltip.percentage}</p>
-            )}
-          </div>
-        )}
+      <div className="p-4 md:p-5 rounded-lg border border-border bg-card">
+        <div className="flex items-center justify-between mb-3 md:mb-4">
+          <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+            Money Flow
+          </p>
+          <span className="text-[10px] md:text-xs text-muted-foreground">
+            {categories.length} categories
+          </span>
+        </div>
+        <div 
+          ref={containerRef} 
+          className="relative"
+        >
+          <canvas
+            ref={canvasRef}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            className={cn("w-full transition-opacity", hoveredIndex !== null && "cursor-pointer")}
+            style={{ height: dimensions.height || calculateHeight() }}
+          />
+          
+          {tooltip && (
+            <div
+              className="fixed z-50 px-3 py-2 bg-foreground text-background text-xs rounded-md shadow-xl pointer-events-none"
+              style={{
+                left: Math.min(tooltip.x + 12, window.innerWidth - 160),
+                top: tooltip.y + 12
+              }}
+            >
+              <p className="font-semibold">{tooltip.label}</p>
+              <p className="text-background/80 mt-0.5">{tooltip.amount}</p>
+              {tooltip.percentage && (
+                <p className="text-background/60 text-[10px] mt-0.5">{tooltip.percentage} of total</p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
