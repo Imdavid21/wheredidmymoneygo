@@ -364,7 +364,7 @@ const Index = () => {
             <span>Your data is never stored. Files are analyzed and immediately discarded.</span>
           </div>
           
-          <p className="text-[10px] text-muted-foreground mt-3">
+          <p className="text-[10px] text-muted-foreground mt-3 text-center">
             Built by{' '}
             <a 
               href="https://x.com/ninja_writer21" 
