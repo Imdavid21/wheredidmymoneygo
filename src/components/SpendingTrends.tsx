@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { Transaction, FinanceStats, DailySpending, WeekdayPattern, MonthlyTrend } from '@/types/finance';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, CartesianGrid } from 'recharts';
+import { Transaction, FinanceStats, DailySpending, WeekdayPattern } from '@/types/finance';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface SpendingTrendsProps {
   transactions: Transaction[];
@@ -62,36 +62,6 @@ const SpendingTrends = ({ transactions, stats }: SpendingTrendsProps) => {
       count: dayData[day].count,
       average: dayData[day].count > 0 ? dayData[day].total / dayData[day].count : 0
     }));
-  }, [transactions]);
-
-  const monthlyTrends = useMemo((): MonthlyTrend[] => {
-    const monthMap = new Map<string, { income: number; expenses: number }>();
-    
-    transactions.forEach(t => {
-      const monthKey = t.date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-      const current = monthMap.get(monthKey) || { income: 0, expenses: 0 };
-      
-      if (t.isIncome) {
-        current.income += t.amount;
-      } else {
-        current.expenses += t.amount;
-      }
-      
-      monthMap.set(monthKey, current);
-    });
-
-    return Array.from(monthMap.entries())
-      .map(([month, data]) => ({
-        month,
-        income: data.income,
-        expenses: data.expenses,
-        net: data.income - data.expenses
-      }))
-      .sort((a, b) => {
-        const dateA = new Date(a.month);
-        const dateB = new Date(b.month);
-        return dateA.getTime() - dateB.getTime();
-      });
   }, [transactions]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -199,57 +169,6 @@ const SpendingTrends = ({ transactions, stats }: SpendingTrendsProps) => {
           </div>
         </div>
 
-        {/* Monthly Income vs Expenses */}
-        {monthlyTrends.length > 0 && (
-          <div className="p-3 md:p-4 rounded-lg border border-border bg-card lg:col-span-2">
-            <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-muted-foreground mb-3">
-              Income vs Expenses
-            </p>
-            <div className="h-44 md:h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyTrends} barGap={2}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis 
-                    dataKey="month" 
-                    tick={{ fontSize: 10 }} 
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 9 }} 
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => formatCurrency(v)}
-                    width={60}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar 
-                    dataKey="income" 
-                    name="Income"
-                    fill="hsl(160, 45%, 55%)" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar 
-                    dataKey="expenses" 
-                    name="Expenses"
-                    fill="hsl(0, 0%, 55%)" 
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex items-center justify-center gap-4 mt-2 text-[10px]">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-[hsl(160,45%,55%)]" />
-                <span className="text-muted-foreground">Income</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-[hsl(0,0%,55%)]" />
-                <span className="text-muted-foreground">Expenses</span>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
