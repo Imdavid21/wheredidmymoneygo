@@ -14,6 +14,26 @@ export interface CategoryData {
   color: string;
 }
 
+export interface IncomeSource {
+  name: string;
+  total: number;
+  count: number;
+  transactions: Transaction[];
+}
+
+export type StatementType = 'credit_card' | 'bank' | 'other';
+
+export interface BalanceInfo {
+  type: StatementType;
+  // Credit card
+  creditLimit?: number;
+  creditUsed?: number;
+  availableCredit?: number;
+  // Bank / Other
+  openingBalance?: number;
+  closingBalance?: number;
+}
+
 export interface FinanceStats {
   totalIncome: number;
   incomeCount: number;
@@ -23,19 +43,31 @@ export interface FinanceStats {
   recurringCount: number;
   avgPerTransaction: number;
   currency: string;
+  balanceInfo?: BalanceInfo;
 }
 
 export interface ParsedData {
   transactions: Transaction[];
   categories: CategoryData[];
+  incomeSources: IncomeSource[];
   stats: FinanceStats;
 }
 
 export interface AIAnalysisResult {
   currency: string;
+  statementType: StatementType;
+  balanceInfo?: {
+    creditLimit?: number;
+    creditUsed?: number;
+    availableCredit?: number;
+    openingBalance?: number;
+    closingBalance?: number;
+  };
+  categories?: string[];
   transactions: {
     date: string;
     description: string;
     amount: number;
+    category?: string;
   }[];
 }

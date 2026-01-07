@@ -18,28 +18,40 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are a financial data extraction expert. Analyze the provided bank statement or financial document and extract ALL transactions.
+const systemPrompt = `You are a financial data extraction expert. Analyze the provided bank statement or financial document.
 
-For each transaction, extract:
-- date: The transaction date (ISO format YYYY-MM-DD if possible, otherwise the original format)
-- description: The merchant/payee name or transaction description
-- amount: The transaction amount as a number (positive for income/credits, negative for expenses/debits)
-- currency: The detected currency code (USD, EUR, GBP, INR, JPY, CAD, AUD, etc.)
+EXTRACT:
+1. Statement type: "credit_card", "bank", or "other"
+2. Balance information:
+   - For credit cards: creditLimit, creditUsed, availableCredit
+   - For bank/other: openingBalance, closingBalance
+3. Currency code (USD, EUR, GBP, INR, JPY, CAD, AUD, etc.)
+4. Create custom expense categories based on the actual spending patterns (e.g., "Groceries", "Dining Out", "Online Shopping", "Streaming Services", "Fuel", "Rent", etc.)
+5. ALL transactions with:
+   - date (ISO format YYYY-MM-DD)
+   - description (clean merchant name)
+   - amount (positive = income, negative = expense)
+   - category (assign to one of your custom categories, or "Income" for deposits)
 
-CRITICAL RULES:
-1. Extract EVERY transaction you can find
-2. For amounts: positive = income/deposit/credit, negative = expense/withdrawal/debit
-3. Detect the currency from symbols ($, €, £, ₹, ¥, etc.) or explicit mentions
-4. If currency is ambiguous, infer from context (bank name, location mentions)
-5. Clean merchant names - remove extra codes/references
-6. If date format is unclear, preserve the original
+RULES:
+- Create 5-12 meaningful categories based on actual spending patterns
+- Be specific with categories (e.g., "Coffee & Cafes" instead of generic "Food")
+- Detect currency from symbols or context
+- Extract every transaction found
 
-Respond with ONLY valid JSON in this exact format:
+Respond with ONLY valid JSON:
 {
   "currency": "USD",
+  "statementType": "credit_card",
+  "balanceInfo": {
+    "creditLimit": 10000,
+    "creditUsed": 3500,
+    "availableCredit": 6500
+  },
+  "categories": ["Groceries", "Dining Out", "Subscriptions", "Transport", "Shopping"],
   "transactions": [
-    {"date": "2024-01-15", "description": "AMAZON.COM", "amount": -49.99},
-    {"date": "2024-01-16", "description": "PAYROLL DEPOSIT", "amount": 2500.00}
+    {"date": "2024-01-15", "description": "AMAZON.COM", "amount": -49.99, "category": "Shopping"},
+    {"date": "2024-01-16", "description": "PAYROLL", "amount": 2500.00, "category": "Income"}
   ]
 }`;
 
