@@ -363,6 +363,18 @@ const Index = () => {
             </svg>
             <span>Your data is never stored. Files are analyzed and immediately discarded.</span>
           </div>
+          
+          <p className="text-[10px] text-muted-foreground mt-3">
+            Built by{' '}
+            <a 
+              href="https://x.com/ninja_writer21" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors underline"
+            >
+              Uddalak
+            </a>
+          </p>
         </footer>
       </div>
     </div>

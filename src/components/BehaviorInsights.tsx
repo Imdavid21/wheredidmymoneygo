@@ -142,10 +142,6 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
 
   return (
     <div className="space-y-4 md:space-y-6 mb-6 md:mb-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xs md:text-sm font-medium">Behavior Insights</h2>
-      </div>
-
       {/* Key Insights */}
       {insights.length > 0 && (
         <div className="p-3 md:p-4 rounded-lg border border-border bg-card">
