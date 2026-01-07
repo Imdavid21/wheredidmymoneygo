@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Upload, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface UploadAreaProps {
   onFileUpload: (file: File) => void;
@@ -25,13 +25,15 @@ const UploadArea = ({ onFileUpload, isLoading }: UploadAreaProps) => {
     setIsDragging(false);
     
     const files = e.dataTransfer.files;
-    if (files.length > 0 && files[0].type === 'text/csv') {
+    if (files.length > 0) {
       onFileUpload(files[0]);
     }
   }, [onFileUpload]);
 
   const handleClick = () => {
-    fileInputRef.current?.click();
+    if (!isLoading) {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,7 +45,12 @@ const UploadArea = ({ onFileUpload, isLoading }: UploadAreaProps) => {
 
   return (
     <div
-      className={`upload-zone ${isDragging ? 'active' : ''}`}
+      className={cn(
+        "relative border border-dashed rounded-lg p-16 md:p-24 transition-all duration-200 cursor-pointer",
+        "hover:border-foreground/30 hover:bg-muted/30",
+        isDragging && "border-foreground bg-muted/50",
+        isLoading && "pointer-events-none opacity-60"
+      )}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -52,30 +59,39 @@ const UploadArea = ({ onFileUpload, isLoading }: UploadAreaProps) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".csv"
+        accept=".csv,.xlsx,.xls,.pdf"
         className="hidden"
         onChange={handleFileChange}
       />
       
-      <div className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center gap-3 text-center">
         {isLoading ? (
-          <Loader2 className="w-12 h-12 text-muted-foreground animate-spin" />
+          <div className="w-5 h-5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
         ) : (
-          <Upload className="w-12 h-12 text-muted-foreground" />
+          <div className="w-10 h-10 rounded-full border border-border flex items-center justify-center">
+            <svg 
+              className="w-4 h-4 text-muted-foreground" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+            </svg>
+          </div>
         )}
         
-        <div className="text-center">
-          <p className="text-lg font-semibold mb-1">
-            {isLoading ? 'Processing your data...' : 'Drop your bank statement here'}
+        <div>
+          <p className="text-sm font-medium">
+            {isLoading ? 'Processing...' : 'Drop your bank statement'}
           </p>
-          <p className="text-muted-foreground text-sm mb-3">
-            or click to browse for a CSV file
-          </p>
-          <p className="text-xs text-muted-foreground/70 flex items-center justify-center gap-1.5">
-            <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
-            100% private, processed locally
+          <p className="text-xs text-muted-foreground mt-1">
+            CSV, XLSX, or PDF
           </p>
         </div>
+        
+        <p className="text-[10px] text-muted-foreground/60 mt-2">
+          Processed locally. Your data never leaves this device.
+        </p>
       </div>
     </div>
   );

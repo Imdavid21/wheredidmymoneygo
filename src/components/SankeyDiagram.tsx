@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { CategoryData, FinanceStats } from '@/types/finance';
+import { cn } from '@/lib/utils';
 
 interface SankeyDiagramProps {
   categories: CategoryData[];
@@ -24,11 +25,23 @@ interface NodeBounds {
 }
 
 const formatCurrency = (amount: number) => {
+  if (amount >= 1000) {
+    return `$${(amount / 1000).toFixed(1)}k`;
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
+  }).format(amount);
+};
+
+const formatCurrencyFull = (amount: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   }).format(amount);
 };
 
@@ -38,6 +51,14 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [nodeBounds, setNodeBounds] = useState<NodeBounds[]>([]);
   const [isHovering, setIsHovering] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const calculateHeight = useCallback(() => {
+    const minHeight = 300;
+    const perCategoryHeight = 50;
+    const padding = 80;
+    return Math.max(minHeight, categories.length * perCategoryHeight + padding);
+  }, [categories.length]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -50,7 +71,9 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
     const width = rect.width;
-    const height = Math.max(400, categories.length * 60 + 100);
+    const height = calculateHeight();
+
+    setDimensions({ width, height });
 
     canvas.width = width * dpr;
     canvas.height = height * dpr;
@@ -60,22 +83,63 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, width, height);
 
-    const isMobile = width < 480;
-    const leftMargin = isMobile ? 80 : 120;
-    const rightMargin = isMobile ? 120 : 180;
-    const nodeWidth = 24;
-    const minNodeHeight = 30;
-    const nodePadding = 35;
-    const cornerRadius = 6;
+    const isMobile = width < 500;
+    const leftMargin = isMobile ? 16 : 24;
+    const rightMargin = isMobile ? 16 : 24;
+    const labelLeftWidth = isMobile ? 60 : 80;
+    const labelRightWidth = isMobile ? 80 : 120;
+    const nodeWidth = isMobile ? 8 : 12;
+    const minNodeHeight = 24;
+    const nodePadding = isMobile ? 8 : 12;
+    const cornerRadius = 2;
+    const verticalPadding = 40;
 
-    const incomeNodeHeight = height * 0.7;
-    const incomeNodeY = (height - incomeNodeHeight) / 2;
-    const incomeNodeX = leftMargin;
+    const flowAreaLeft = leftMargin + labelLeftWidth;
+    const flowAreaRight = width - rightMargin - labelRightWidth;
+    const incomeNodeX = flowAreaLeft;
+    const categoryNodeX = flowAreaRight - nodeWidth;
+
+    // Calculate total height needed for categories
+    const availableHeight = height - (verticalPadding * 2);
+    const totalPaddingHeight = (categories.length - 1) * nodePadding;
+    const nodeAreaHeight = availableHeight - totalPaddingHeight;
+
+    // Calculate category node heights
+    const categoryNodes: { y: number; height: number; category: CategoryData }[] = [];
+    let currentY = verticalPadding;
+
+    for (const category of categories) {
+      const proportion = category.total / stats.totalSpent;
+      const nodeHeight = Math.max(minNodeHeight, proportion * nodeAreaHeight);
+      
+      categoryNodes.push({
+        y: currentY,
+        height: nodeHeight,
+        category
+      });
+      
+      currentY += nodeHeight + nodePadding;
+    }
+
+    // Recalculate to fit within bounds
+    const totalNodeHeight = categoryNodes.reduce((sum, n) => sum + n.height, 0) + totalPaddingHeight;
+    const scale = totalNodeHeight > availableHeight ? availableHeight / totalNodeHeight : 1;
+    
+    currentY = verticalPadding;
+    for (const node of categoryNodes) {
+      node.y = currentY;
+      node.height = node.height * scale;
+      currentY += node.height + nodePadding * scale;
+    }
+
+    const actualTotalHeight = currentY - nodePadding * scale - verticalPadding;
+    const incomeNodeHeight = actualTotalHeight;
+    const incomeNodeY = verticalPadding;
 
     const bounds: NodeBounds[] = [];
 
     // Draw income node
-    ctx.fillStyle = '#0a0a0a';
+    ctx.fillStyle = 'hsl(0, 0%, 15%)';
     ctx.beginPath();
     ctx.roundRect(incomeNodeX, incomeNodeY, nodeWidth, incomeNodeHeight, cornerRadius);
     ctx.fill();
@@ -89,73 +153,44 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     });
 
     // Draw income label
-    ctx.fillStyle = '#0a0a0a';
-    ctx.font = 'bold 14px Inter, system-ui, sans-serif';
+    ctx.fillStyle = 'hsl(0, 0%, 15%)';
+    ctx.font = `500 ${isMobile ? 11 : 12}px Inter, system-ui, sans-serif`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Income', incomeNodeX - 12, incomeNodeY + incomeNodeHeight / 2 - 10);
-    ctx.font = '12px Inter, system-ui, sans-serif';
-    ctx.fillStyle = '#666666';
-    ctx.fillText(formatCurrency(stats.totalSpent), incomeNodeX - 12, incomeNodeY + incomeNodeHeight / 2 + 10);
+    ctx.fillText('Income', incomeNodeX - 8, incomeNodeY + incomeNodeHeight / 2 - 8);
+    
+    ctx.font = `400 ${isMobile ? 10 : 11}px Inter, system-ui, sans-serif`;
+    ctx.fillStyle = 'hsl(0, 0%, 50%)';
+    ctx.fillText(formatCurrency(stats.totalSpent), incomeNodeX - 8, incomeNodeY + incomeNodeHeight / 2 + 8);
 
-    // Calculate category node positions
-    const totalCategoryHeight = categories.reduce((sum, cat) => {
-      const proportion = cat.total / stats.totalSpent;
-      return sum + Math.max(minNodeHeight, proportion * incomeNodeHeight);
-    }, 0) + (categories.length - 1) * nodePadding;
-
-    const startY = (height - totalCategoryHeight) / 2;
-    const categoryNodeX = width - rightMargin - nodeWidth;
-
-    let currentY = startY;
-    const categoryNodes: { y: number; height: number; category: CategoryData }[] = [];
-
-    for (const category of categories) {
-      const proportion = category.total / stats.totalSpent;
-      const nodeHeight = Math.max(minNodeHeight, proportion * incomeNodeHeight);
-
-      categoryNodes.push({
-        y: currentY,
-        height: nodeHeight,
-        category
-      });
-
-      currentY += nodeHeight + nodePadding;
-    }
-
-    // Draw flows (Bezier curves)
+    // Draw flows
     let incomeFlowY = incomeNodeY;
 
     for (const node of categoryNodes) {
       const flowHeight = (node.category.total / stats.totalSpent) * incomeNodeHeight;
       
-      // Parse color and create semi-transparent version
       const colorMatch = node.category.color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-      let fillColor = 'rgba(100, 100, 100, 0.3)';
+      let fillColor = 'hsla(0, 0%, 50%, 0.15)';
       
       if (colorMatch) {
-        const [, h, s, l] = colorMatch;
-        fillColor = `hsla(${h}, ${s}%, ${l}%, 0.5)`;
+        const [, h, s] = colorMatch;
+        fillColor = `hsla(${h}, ${s}%, 55%, 0.25)`;
       }
 
       ctx.fillStyle = fillColor;
       ctx.beginPath();
       
-      // Start at income node
       const startX = incomeNodeX + nodeWidth;
       const startY1 = incomeFlowY;
       const startY2 = incomeFlowY + flowHeight;
       
-      // End at category node
       const endX = categoryNodeX;
       const endY1 = node.y;
       const endY2 = node.y + node.height;
       
-      // Control points for bezier
-      const cpX1 = startX + (endX - startX) * 0.4;
-      const cpX2 = startX + (endX - startX) * 0.6;
+      const cpX1 = startX + (endX - startX) * 0.5;
+      const cpX2 = startX + (endX - startX) * 0.5;
 
-      // Draw filled bezier path
       ctx.moveTo(startX, startY1);
       ctx.bezierCurveTo(cpX1, startY1, cpX2, endY1, endX, endY1);
       ctx.lineTo(endX, endY2);
@@ -169,11 +204,11 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     // Draw category nodes and labels
     for (const node of categoryNodes) {
       const colorMatch = node.category.color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-      let nodeColor = '#0a0a0a';
+      let nodeColor = 'hsl(0, 0%, 30%)';
       
       if (colorMatch) {
         const [, h] = colorMatch;
-        nodeColor = `hsl(${h}, 50%, 40%)`;
+        nodeColor = `hsl(${h}, 45%, 45%)`;
       }
 
       ctx.fillStyle = nodeColor;
@@ -189,38 +224,35 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
         category: node.category
       });
 
-      // Draw labels
-      const labelX = categoryNodeX + nodeWidth + 12;
-      const isCompact = node.height < 35;
+      // Labels
+      const labelX = categoryNodeX + nodeWidth + 8;
+      const centerY = node.y + node.height / 2;
 
-      if (isCompact) {
-        ctx.fillStyle = '#0a0a0a';
-        ctx.font = '12px Inter, system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        const compactLabel = `${node.category.name} ${formatCurrency(node.category.total)}`;
-        ctx.fillText(compactLabel, labelX, node.y + node.height / 2);
+      // Truncate name if needed
+      const maxNameLength = isMobile ? 12 : 18;
+      let displayName = node.category.name;
+      if (displayName.length > maxNameLength) {
+        displayName = displayName.substring(0, maxNameLength - 2) + '..';
+      }
+
+      ctx.fillStyle = 'hsl(0, 0%, 15%)';
+      ctx.font = `500 ${isMobile ? 10 : 11}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      
+      if (node.height < 35) {
+        // Single line for small nodes
+        ctx.fillText(`${displayName} ${formatCurrency(node.category.total)}`, labelX, centerY);
       } else {
-        const centerY = node.y + node.height / 2;
-        
-        ctx.fillStyle = '#0a0a0a';
-        ctx.font = 'bold 13px Inter, system-ui, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(node.category.name, labelX, centerY - 10);
-        
-        ctx.font = '12px Inter, system-ui, sans-serif';
-        ctx.fillStyle = '#666666';
-        ctx.fillText(
-          `${formatCurrency(node.category.total)} (${node.category.percentage.toFixed(1)}%)`,
-          labelX,
-          centerY + 10
-        );
+        ctx.fillText(displayName, labelX, centerY - 7);
+        ctx.font = `400 ${isMobile ? 9 : 10}px Inter, system-ui, sans-serif`;
+        ctx.fillStyle = 'hsl(0, 0%, 50%)';
+        ctx.fillText(`${formatCurrency(node.category.total)} · ${node.category.percentage.toFixed(0)}%`, labelX, centerY + 8);
       }
     }
 
     setNodeBounds(bounds);
-  }, [categories, stats]);
+  }, [categories, stats, calculateHeight]);
 
   useEffect(() => {
     draw();
@@ -228,7 +260,7 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
     let resizeTimeout: ReturnType<typeof setTimeout>;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(draw, 250);
+      resizeTimeout = setTimeout(draw, 150);
     };
 
     window.addEventListener('resize', handleResize);
@@ -250,8 +282,8 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
 
     for (const node of nodeBounds) {
       if (
-        x >= node.x &&
-        x <= node.x + node.width &&
+        x >= node.x - 10 &&
+        x <= node.x + node.width + 10 &&
         y >= node.y &&
         y <= node.y + node.height
       ) {
@@ -267,14 +299,14 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
           x: e.clientX,
           y: e.clientY,
           label: 'Total Spending',
-          amount: formatCurrency(stats.totalSpent)
+          amount: formatCurrencyFull(stats.totalSpent)
         });
       } else if (foundNode.category) {
         setTooltip({
           x: e.clientX,
           y: e.clientY,
           label: foundNode.category.name,
-          amount: formatCurrency(foundNode.category.total),
+          amount: formatCurrencyFull(foundNode.category.total),
           percentage: `${foundNode.category.percentage.toFixed(1)}%`
         });
       }
@@ -290,31 +322,35 @@ const SankeyDiagram = ({ categories, stats }: SankeyDiagramProps) => {
   }, []);
 
   return (
-    <div className="mb-10">
-      <h2 className="text-xl font-bold mb-4">Spending Flow</h2>
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-medium">Flow</h2>
+        <span className="text-xs text-muted-foreground">{categories.length} categories</span>
+      </div>
       <div 
         ref={containerRef} 
-        className="relative bg-card rounded-xl border border-border p-4 overflow-hidden"
+        className="relative rounded-lg border border-border bg-card overflow-hidden"
       >
         <canvas
           ref={canvasRef}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          style={{ cursor: isHovering ? 'pointer' : 'default' }}
+          className={cn("w-full", isHovering && "cursor-pointer")}
+          style={{ height: dimensions.height || calculateHeight() }}
         />
         
         {tooltip && (
           <div
-            className="fixed z-50 px-3 py-2 bg-foreground text-background text-sm rounded-lg shadow-lg pointer-events-none"
+            className="fixed z-50 px-2.5 py-1.5 bg-foreground text-background text-xs rounded shadow-lg pointer-events-none"
             style={{
-              left: tooltip.x + 12,
+              left: Math.min(tooltip.x + 12, window.innerWidth - 150),
               top: tooltip.y + 12
             }}
           >
-            <p className="font-semibold">{tooltip.label}</p>
-            <p>{tooltip.amount}</p>
+            <p className="font-medium">{tooltip.label}</p>
+            <p className="text-background/80">{tooltip.amount}</p>
             {tooltip.percentage && (
-              <p className="text-background/70">{tooltip.percentage}</p>
+              <p className="text-background/60">{tooltip.percentage}</p>
             )}
           </div>
         )}

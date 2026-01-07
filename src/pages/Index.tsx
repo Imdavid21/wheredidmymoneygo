@@ -5,7 +5,7 @@ import StatsGrid from '@/components/StatsGrid';
 import SankeyDiagram from '@/components/SankeyDiagram';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
 import { ParsedData } from '@/types/finance';
-import { parseCSV } from '@/utils/csvParser';
+import { parseFile } from '@/utils/fileParser';
 import { toast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -16,12 +16,12 @@ const Index = () => {
     setIsLoading(true);
     
     try {
-      const parsedData = await parseCSV(file);
+      const parsedData = await parseFile(file);
       
       if (parsedData.transactions.length === 0) {
         toast({
           title: "No transactions found",
-          description: "The CSV file doesn't contain any recognizable transactions.",
+          description: "Could not parse any transactions from this file.",
           variant: "destructive"
         });
         setIsLoading(false);
@@ -30,13 +30,13 @@ const Index = () => {
 
       setData(parsedData);
       toast({
-        title: "Success!",
-        description: `Processed ${parsedData.transactions.length} transactions across ${parsedData.categories.length} categories.`
+        title: "Done",
+        description: `${parsedData.transactions.length} transactions across ${parsedData.categories.length} categories.`
       });
     } catch (error) {
       toast({
-        title: "Error parsing file",
-        description: "Please make sure you're uploading a valid CSV bank statement.",
+        title: "Error",
+        description: "Could not parse this file. Try a different format.",
         variant: "destructive"
       });
     } finally {
@@ -50,22 +50,13 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container max-w-6xl mx-auto px-4 py-12">
-        <Header />
+      <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+        <Header hasData={!!data} onReset={handleReset} />
 
         {!data ? (
           <UploadArea onFileUpload={handleFileUpload} isLoading={isLoading} />
         ) : (
-          <div className="animate-fade-in">
-            <div className="flex justify-end mb-6">
-              <button
-                onClick={handleReset}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
-              >
-                Upload different file
-              </button>
-            </div>
-
+          <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
             <StatsGrid stats={data.stats} />
             
             {data.categories.length > 0 && (
@@ -80,8 +71,10 @@ const Index = () => {
           </div>
         )}
 
-        <footer className="mt-16 text-center text-sm text-muted-foreground">
-          <p>Your data never leaves your device. 100% private.</p>
+        <footer className="mt-12 pt-6 border-t border-border">
+          <p className="text-[10px] text-muted-foreground text-center">
+            Your data stays on this device. Nothing is uploaded.
+          </p>
         </footer>
       </div>
     </div>
