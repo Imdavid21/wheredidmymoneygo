@@ -65,7 +65,7 @@ const Index = () => {
                   categories={data.categories} 
                   stats={data.stats} 
                 />
-                <CategoryBreakdown categories={data.categories} />
+                <CategoryBreakdown categories={data.categories} stats={data.stats} />
               </>
             )}
           </div>

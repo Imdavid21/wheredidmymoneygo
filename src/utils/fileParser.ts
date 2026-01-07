@@ -1,7 +1,8 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
-import { Transaction, CategoryData, FinanceStats, ParsedData } from '@/types/finance';
+import { Transaction, CategoryData, FinanceStats, ParsedData, AIAnalysisResult } from '@/types/finance';
+import { supabase } from '@/integrations/supabase/client';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
@@ -10,7 +11,8 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Food & Dining': [
     'restaurant', 'cafe', 'coffee', 'doordash', 'ubereats', 'grubhub', 'grocery',
     'starbucks', 'chipotle', 'safeway', 'whole foods', 'trader joe', 'mcdonald',
-    'burger', 'pizza', 'taco', 'sushi', 'diner', 'bakery', 'food', 'eat', 'kitchen'
+    'burger', 'pizza', 'taco', 'sushi', 'diner', 'bakery', 'food', 'eat', 'kitchen',
+    'swiggy', 'zomato', 'dunkin'
   ],
   'Subscriptions': [
     'netflix', 'spotify', 'hulu', 'disney', 'prime', 'gym', 'membership',
@@ -18,15 +20,15 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ],
   'Shopping': [
     'amazon', 'walmart', 'target', 'best buy', 'costco', 'ebay', 'etsy',
-    'shop', 'store', 'retail', 'mall', 'clothing', 'apparel'
+    'shop', 'store', 'retail', 'mall', 'clothing', 'apparel', 'flipkart'
   ],
   'Transport': [
     'uber', 'lyft', 'gas', 'parking', 'shell', 'chevron', 'exxon', 'bp',
-    'transit', 'metro', 'subway', 'bus', 'toll', 'car wash', 'fuel'
+    'transit', 'metro', 'subway', 'bus', 'toll', 'car wash', 'fuel', 'ola', 'rapido'
   ],
   'Utilities': [
     'electric', 'water', 'internet', 'phone', 'verizon', 'at&t', 'comcast',
-    'edison', 'bill', 'utility', 'pge', 'spectrum', 'xfinity', 't-mobile'
+    'edison', 'bill', 'utility', 'pge', 'spectrum', 'xfinity', 't-mobile', 'airtel', 'jio'
   ],
   'Entertainment': [
     'movie', 'theater', 'theatre', 'game', 'steam', 'concert', 'playstation',
@@ -34,12 +36,55 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   ],
   'Health': [
     'pharmacy', 'doctor', 'cvs', 'walgreens', 'medical', 'hospital', 'clinic',
-    'dental', 'vision', 'health', 'rx', 'prescription'
+    'dental', 'vision', 'health', 'rx', 'prescription', 'apollo'
   ],
   'Housing': [
     'rent', 'mortgage', 'apartment', 'lease', 'hoa', 'property'
   ]
 };
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  '$': 'USD',
+  '€': 'EUR',
+  '£': 'GBP',
+  '¥': 'JPY',
+  '₹': 'INR',
+  'A$': 'AUD',
+  'C$': 'CAD',
+  'CHF': 'CHF',
+  '₩': 'KRW',
+  '₽': 'RUB',
+  'R$': 'BRL',
+  '₺': 'TRY',
+  'zł': 'PLN',
+  '₴': 'UAH',
+  '฿': 'THB',
+  'RM': 'MYR',
+  'S$': 'SGD',
+  'HK$': 'HKD',
+  'kr': 'SEK',
+  '₫': 'VND',
+  '₱': 'PHP',
+  '₦': 'NGN',
+  'R': 'ZAR',
+};
+
+function detectCurrencyFromText(text: string): string {
+  // Check for explicit currency codes
+  const currencyCodeMatch = text.match(/\b(USD|EUR|GBP|JPY|INR|AUD|CAD|CHF|KRW|RUB|BRL|TRY|PLN|UAH|THB|MYR|SGD|HKD|SEK|VND|PHP|NGN|ZAR)\b/i);
+  if (currencyCodeMatch) {
+    return currencyCodeMatch[1].toUpperCase();
+  }
+
+  // Check for currency symbols
+  for (const [symbol, code] of Object.entries(CURRENCY_SYMBOLS)) {
+    if (text.includes(symbol)) {
+      return code;
+    }
+  }
+
+  return 'USD'; // Default
+}
 
 function categorizeTransaction(description: string): string {
   const lowerDesc = description.toLowerCase();
@@ -86,8 +131,13 @@ function parseAmount(amountStr: string | undefined, debitStr?: string, creditStr
   return null;
 }
 
-function processRows(rows: Record<string, string>[]): Transaction[] {
+function processRows(rows: Record<string, string>[]): { transactions: Transaction[]; currency: string } {
   const transactions: Transaction[] = [];
+  let detectedCurrency = 'USD';
+  
+  // Try to detect currency from all rows
+  const allText = rows.map(r => Object.values(r).join(' ')).join(' ');
+  detectedCurrency = detectCurrencyFromText(allText);
   
   for (const row of rows) {
     const amountStr = findField(row, ['amount', 'transaction amount', 'total']);
@@ -122,10 +172,39 @@ function processRows(rows: Record<string, string>[]): Transaction[] {
     });
   }
   
-  return transactions;
+  return { transactions, currency: detectedCurrency };
 }
 
-function calculateStats(transactions: Transaction[]): { stats: FinanceStats; categories: CategoryData[] } {
+function processAITransactions(aiResult: AIAnalysisResult): { transactions: Transaction[]; currency: string } {
+  const transactions: Transaction[] = [];
+  
+  for (const t of aiResult.transactions) {
+    let date: Date;
+    try {
+      date = new Date(t.date);
+      if (isNaN(date.getTime())) {
+        date = new Date();
+      }
+    } catch {
+      date = new Date();
+    }
+    
+    const isIncome = t.amount > 0;
+    const category = isIncome ? 'Income' : categorizeTransaction(t.description);
+    
+    transactions.push({
+      date,
+      description: t.description.trim(),
+      amount: Math.abs(t.amount),
+      category,
+      isIncome
+    });
+  }
+  
+  return { transactions, currency: aiResult.currency || 'USD' };
+}
+
+function calculateStats(transactions: Transaction[], currency: string): { stats: FinanceStats; categories: CategoryData[] } {
   const incomeTransactions = transactions.filter(t => t.isIncome);
   const expenseTransactions = transactions.filter(t => !t.isIncome);
   
@@ -161,7 +240,8 @@ function calculateStats(transactions: Transaction[]): { stats: FinanceStats; cat
     recurringCount,
     avgPerTransaction: expenseTransactions.length > 0 
       ? totalSpent / expenseTransactions.length 
-      : 0
+      : 0,
+    currency
   };
   
   // Group by category
@@ -201,15 +281,54 @@ function calculateStats(transactions: Transaction[]): { stats: FinanceStats; cat
   return { stats, categories };
 }
 
+async function analyzeWithAI(content: string, fileType: string): Promise<AIAnalysisResult | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('analyze-file', {
+      body: { rawContent: content.substring(0, 50000), fileType } // Limit content size
+    });
+    
+    if (error) {
+      console.error('AI analysis error:', error);
+      return null;
+    }
+    
+    if (data?.error) {
+      console.error('AI analysis returned error:', data.error);
+      return null;
+    }
+    
+    return data as AIAnalysisResult;
+  } catch (e) {
+    console.error('Failed to call AI analysis:', e);
+    return null;
+  }
+}
+
 export async function parseCSV(file: File): Promise<ParsedData> {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: async (results) => {
         try {
-          const transactions = processRows(results.data as Record<string, string>[]);
-          const { stats, categories } = calculateStats(transactions);
+          const { transactions, currency } = processRows(results.data as Record<string, string>[]);
+          
+          // If we got few or no transactions, try AI analysis
+          if (transactions.length < 3) {
+            const rawText = (results.data as Record<string, string>[])
+              .map(row => Object.values(row).join(' | '))
+              .join('\n');
+            
+            const aiResult = await analyzeWithAI(rawText, 'CSV');
+            if (aiResult && aiResult.transactions?.length > 0) {
+              const { transactions: aiTxns, currency: aiCurrency } = processAITransactions(aiResult);
+              const { stats, categories } = calculateStats(aiTxns, aiCurrency);
+              resolve({ transactions: aiTxns, categories, stats });
+              return;
+            }
+          }
+          
+          const { stats, categories } = calculateStats(transactions, currency);
           resolve({ transactions, categories, stats });
         } catch (error) {
           reject(error);
@@ -224,15 +343,29 @@ export async function parseXLSX(file: File): Promise<ParsedData> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json<Record<string, string>>(firstSheet, { raw: false });
         
-        const transactions = processRows(rows);
-        const { stats, categories } = calculateStats(transactions);
+        const { transactions, currency } = processRows(rows);
+        
+        // If we got few or no transactions, try AI analysis
+        if (transactions.length < 3) {
+          const rawText = rows.map(row => Object.values(row).join(' | ')).join('\n');
+          
+          const aiResult = await analyzeWithAI(rawText, 'XLSX');
+          if (aiResult && aiResult.transactions?.length > 0) {
+            const { transactions: aiTxns, currency: aiCurrency } = processAITransactions(aiResult);
+            const { stats, categories } = calculateStats(aiTxns, aiCurrency);
+            resolve({ transactions: aiTxns, categories, stats });
+            return;
+          }
+        }
+        
+        const { stats, categories } = calculateStats(transactions, currency);
         resolve({ transactions, categories, stats });
       } catch (error) {
         reject(error);
@@ -263,11 +396,19 @@ export async function parsePDF(file: File): Promise<ParsedData> {
           fullText += pageText + '\n';
         }
         
-        // Try to extract transactions from PDF text
+        // For PDFs, always try AI analysis first since format varies greatly
+        const aiResult = await analyzeWithAI(fullText, 'PDF');
+        if (aiResult && aiResult.transactions?.length > 0) {
+          const { transactions, currency } = processAITransactions(aiResult);
+          const { stats, categories } = calculateStats(transactions, currency);
+          resolve({ transactions, categories, stats });
+          return;
+        }
+        
+        // Fallback to pattern matching
         const lines = fullText.split('\n').filter(line => line.trim());
         const rows: Record<string, string>[] = [];
         
-        // Simple pattern matching for common bank statement formats
         const amountPattern = /\$?-?[\d,]+\.?\d*/g;
         const datePattern = /\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g;
         
@@ -293,8 +434,8 @@ export async function parsePDF(file: File): Promise<ParsedData> {
           }
         }
         
-        const transactions = processRows(rows);
-        const { stats, categories } = calculateStats(transactions);
+        const { transactions, currency } = processRows(rows);
+        const { stats, categories } = calculateStats(transactions, currency);
         resolve({ transactions, categories, stats });
       } catch (error) {
         reject(error);
