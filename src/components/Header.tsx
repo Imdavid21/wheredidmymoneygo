@@ -9,7 +9,7 @@ const Header = ({ hasData, onReset }: HeaderProps) => {
   return (
     <header className="flex flex-col items-center text-center mb-6 md:mb-12">
       <h1 className="text-lg sm:text-xl md:text-2xl font-semibold tracking-tight">
-        WhereTheFuckDidMyMoneyGo
+        WhereDidMyMoneyGo
       </h1>
       <p className="text-xs sm:text-sm text-muted-foreground mt-1">
         Find out where your money actually went
