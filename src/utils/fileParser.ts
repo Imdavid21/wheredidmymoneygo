@@ -1,13 +1,13 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
-import { Transaction, CategoryData, FinanceStats, ParsedData, AIAnalysisResult } from '@/types/finance';
+import { Transaction, CategoryData, FinanceStats, ParsedData, AIAnalysisResult, IncomeSource, BalanceInfo, StatementType } from '@/types/finance';
 import { supabase } from '@/integrations/supabase/client';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
+const FALLBACK_CATEGORY_KEYWORDS: Record<string, string[]> = {
   'Food & Dining': [
     'restaurant', 'cafe', 'coffee', 'doordash', 'ubereats', 'grubhub', 'grocery',
     'starbucks', 'chipotle', 'safeway', 'whole foods', 'trader joe', 'mcdonald',
@@ -70,26 +70,24 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 function detectCurrencyFromText(text: string): string {
-  // Check for explicit currency codes
   const currencyCodeMatch = text.match(/\b(USD|EUR|GBP|JPY|INR|AUD|CAD|CHF|KRW|RUB|BRL|TRY|PLN|UAH|THB|MYR|SGD|HKD|SEK|VND|PHP|NGN|ZAR)\b/i);
   if (currencyCodeMatch) {
     return currencyCodeMatch[1].toUpperCase();
   }
 
-  // Check for currency symbols
   for (const [symbol, code] of Object.entries(CURRENCY_SYMBOLS)) {
     if (text.includes(symbol)) {
       return code;
     }
   }
 
-  return 'USD'; // Default
+  return 'USD';
 }
 
-function categorizeTransaction(description: string): string {
+function categorizeTransactionFallback(description: string): string {
   const lowerDesc = description.toLowerCase();
   
-  for (const [category, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+  for (const [category, keywords] of Object.entries(FALLBACK_CATEGORY_KEYWORDS)) {
     if (keywords.some(keyword => lowerDesc.includes(keyword))) {
       return category;
     }
@@ -161,7 +159,7 @@ function processRows(rows: Record<string, string>[]): { transactions: Transactio
     }
     
     const isIncome = amount > 0;
-    const category = isIncome ? 'Income' : categorizeTransaction(descStr);
+    const category = isIncome ? 'Income' : categorizeTransactionFallback(descStr);
     
     transactions.push({
       date,
@@ -175,7 +173,13 @@ function processRows(rows: Record<string, string>[]): { transactions: Transactio
   return { transactions, currency: detectedCurrency };
 }
 
-function processAITransactions(aiResult: AIAnalysisResult): { transactions: Transaction[]; currency: string } {
+interface AIProcessedResult {
+  transactions: Transaction[];
+  currency: string;
+  balanceInfo?: BalanceInfo;
+}
+
+function processAITransactions(aiResult: AIAnalysisResult): AIProcessedResult {
   const transactions: Transaction[] = [];
   
   for (const t of aiResult.transactions) {
@@ -190,7 +194,8 @@ function processAITransactions(aiResult: AIAnalysisResult): { transactions: Tran
     }
     
     const isIncome = t.amount > 0;
-    const category = isIncome ? 'Income' : categorizeTransaction(t.description);
+    // Use AI-provided category or fallback
+    const category = t.category || (isIncome ? 'Income' : categorizeTransactionFallback(t.description));
     
     transactions.push({
       date,
@@ -201,10 +206,23 @@ function processAITransactions(aiResult: AIAnalysisResult): { transactions: Tran
     });
   }
   
-  return { transactions, currency: aiResult.currency || 'USD' };
+  const balanceInfo: BalanceInfo | undefined = aiResult.balanceInfo ? {
+    type: aiResult.statementType || 'other',
+    ...aiResult.balanceInfo
+  } : undefined;
+  
+  return { 
+    transactions, 
+    currency: aiResult.currency || 'USD',
+    balanceInfo
+  };
 }
 
-function calculateStats(transactions: Transaction[], currency: string): { stats: FinanceStats; categories: CategoryData[] } {
+function calculateStats(
+  transactions: Transaction[], 
+  currency: string,
+  balanceInfo?: BalanceInfo
+): { stats: FinanceStats; categories: CategoryData[]; incomeSources: IncomeSource[] } {
   const incomeTransactions = transactions.filter(t => t.isIncome);
   const expenseTransactions = transactions.filter(t => !t.isIncome);
   
@@ -241,10 +259,11 @@ function calculateStats(transactions: Transaction[], currency: string): { stats:
     avgPerTransaction: expenseTransactions.length > 0 
       ? totalSpent / expenseTransactions.length 
       : 0,
-    currency
+    currency,
+    balanceInfo
   };
   
-  // Group by category
+  // Group expenses by category
   const categoryMap = new Map<string, Transaction[]>();
   for (const t of expenseTransactions) {
     const existing = categoryMap.get(t.category) || [];
@@ -278,7 +297,27 @@ function calculateStats(transactions: Transaction[], currency: string): { stats:
     colorIndex++;
   }
   
-  return { stats, categories };
+  // Group income by source
+  const incomeMap = new Map<string, Transaction[]>();
+  for (const t of incomeTransactions) {
+    const sourceName = t.description.length > 20 
+      ? t.description.substring(0, 20) + '...' 
+      : t.description;
+    const existing = incomeMap.get(sourceName) || [];
+    existing.push(t);
+    incomeMap.set(sourceName, existing);
+  }
+  
+  const incomeSources: IncomeSource[] = Array.from(incomeMap.entries())
+    .map(([name, txns]) => ({
+      name,
+      total: txns.reduce((sum, t) => sum + t.amount, 0),
+      count: txns.length,
+      transactions: txns
+    }))
+    .sort((a, b) => b.total - a.total);
+  
+  return { stats, categories, incomeSources };
 }
 
 async function analyzeWithAI(content: string, fileType: string): Promise<AIAnalysisResult | null> {
@@ -321,15 +360,15 @@ export async function parseCSV(file: File): Promise<ParsedData> {
             
             const aiResult = await analyzeWithAI(rawText, 'CSV');
             if (aiResult && aiResult.transactions?.length > 0) {
-              const { transactions: aiTxns, currency: aiCurrency } = processAITransactions(aiResult);
-              const { stats, categories } = calculateStats(aiTxns, aiCurrency);
-              resolve({ transactions: aiTxns, categories, stats });
+              const { transactions: aiTxns, currency: aiCurrency, balanceInfo } = processAITransactions(aiResult);
+              const { stats, categories, incomeSources } = calculateStats(aiTxns, aiCurrency, balanceInfo);
+              resolve({ transactions: aiTxns, categories, incomeSources, stats });
               return;
             }
           }
           
-          const { stats, categories } = calculateStats(transactions, currency);
-          resolve({ transactions, categories, stats });
+          const { stats, categories, incomeSources } = calculateStats(transactions, currency);
+          resolve({ transactions, categories, incomeSources, stats });
         } catch (error) {
           reject(error);
         }
@@ -358,15 +397,15 @@ export async function parseXLSX(file: File): Promise<ParsedData> {
           
           const aiResult = await analyzeWithAI(rawText, 'XLSX');
           if (aiResult && aiResult.transactions?.length > 0) {
-            const { transactions: aiTxns, currency: aiCurrency } = processAITransactions(aiResult);
-            const { stats, categories } = calculateStats(aiTxns, aiCurrency);
-            resolve({ transactions: aiTxns, categories, stats });
+            const { transactions: aiTxns, currency: aiCurrency, balanceInfo } = processAITransactions(aiResult);
+            const { stats, categories, incomeSources } = calculateStats(aiTxns, aiCurrency, balanceInfo);
+            resolve({ transactions: aiTxns, categories, incomeSources, stats });
             return;
           }
         }
         
-        const { stats, categories } = calculateStats(transactions, currency);
-        resolve({ transactions, categories, stats });
+        const { stats, categories, incomeSources } = calculateStats(transactions, currency);
+        resolve({ transactions, categories, incomeSources, stats });
       } catch (error) {
         reject(error);
       }
@@ -399,9 +438,9 @@ export async function parsePDF(file: File): Promise<ParsedData> {
         // For PDFs, always try AI analysis first since format varies greatly
         const aiResult = await analyzeWithAI(fullText, 'PDF');
         if (aiResult && aiResult.transactions?.length > 0) {
-          const { transactions, currency } = processAITransactions(aiResult);
-          const { stats, categories } = calculateStats(transactions, currency);
-          resolve({ transactions, categories, stats });
+          const { transactions, currency, balanceInfo } = processAITransactions(aiResult);
+          const { stats, categories, incomeSources } = calculateStats(transactions, currency, balanceInfo);
+          resolve({ transactions, categories, incomeSources, stats });
           return;
         }
         
@@ -435,8 +474,8 @@ export async function parsePDF(file: File): Promise<ParsedData> {
         }
         
         const { transactions, currency } = processRows(rows);
-        const { stats, categories } = calculateStats(transactions, currency);
-        resolve({ transactions, categories, stats });
+        const { stats, categories, incomeSources } = calculateStats(transactions, currency);
+        resolve({ transactions, categories, incomeSources, stats });
       } catch (error) {
         reject(error);
       }

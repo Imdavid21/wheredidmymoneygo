@@ -57,7 +57,7 @@ const Index = () => {
           <UploadArea onFileUpload={handleFileUpload} isLoading={isLoading} />
         ) : (
           <div className="animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
-            <StatsGrid stats={data.stats} />
+            <StatsGrid stats={data.stats} incomeSources={data.incomeSources} />
             
             {data.categories.length > 0 && (
               <>
