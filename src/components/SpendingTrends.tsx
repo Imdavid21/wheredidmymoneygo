@@ -226,13 +226,13 @@ const SpendingTrends = ({ transactions, stats }: SpendingTrendsProps) => {
                   <Bar 
                     dataKey="income" 
                     name="Income"
-                    fill="hsl(142, 71%, 45%)" 
+                    fill="hsl(160, 45%, 55%)" 
                     radius={[4, 4, 0, 0]}
                   />
                   <Bar 
                     dataKey="expenses" 
                     name="Expenses"
-                    fill="hsl(0, 84%, 60%)" 
+                    fill="hsl(0, 0%, 55%)" 
                     radius={[4, 4, 0, 0]}
                   />
                 </BarChart>
@@ -240,11 +240,11 @@ const SpendingTrends = ({ transactions, stats }: SpendingTrendsProps) => {
             </div>
             <div className="flex items-center justify-center gap-4 mt-2 text-[10px]">
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-[hsl(142,71%,45%)]" />
+                <div className="w-2 h-2 rounded-full bg-[hsl(160,45%,55%)]" />
                 <span className="text-muted-foreground">Income</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-[hsl(0,84%,60%)]" />
+                <div className="w-2 h-2 rounded-full bg-[hsl(0,0%,55%)]" />
                 <span className="text-muted-foreground">Expenses</span>
               </div>
             </div>
