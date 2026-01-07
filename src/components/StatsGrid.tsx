@@ -123,12 +123,17 @@ const StatsGrid = ({ stats, incomeSources }: StatsGridProps) => {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
+      {/* Stats Grid - center 3 cards, grid for 4 */}
+      <div className={statCards.length === 3 
+        ? "flex flex-wrap justify-center gap-2 md:gap-4" 
+        : "grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4"
+      }>
         {statCards.map((stat) => (
           <div 
             key={stat.label} 
-            className="p-3 md:p-5 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors"
+            className={`p-3 md:p-5 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors ${
+              statCards.length === 3 ? 'w-full sm:w-auto sm:flex-1 sm:max-w-[200px]' : ''
+            }`}
           >
             <p className="text-[9px] md:text-[11px] uppercase tracking-wide text-muted-foreground mb-1 md:mb-2">
               {stat.label}
