@@ -347,7 +347,7 @@ const Index = () => {
               to="/privacy" 
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              Privacy & Security
+              Privacy
             </Link>
             <Link 
               to="/faq" 
