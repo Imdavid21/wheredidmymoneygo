@@ -2,12 +2,12 @@ import { useMemo } from 'react';
 import { Transaction, FinanceStats, TopMerchant } from '@/types/finance';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
-interface BehaviorInsightsProps {
+interface MerchantStatsProps {
   transactions: Transaction[];
   stats: FinanceStats;
 }
 
-const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
+const MerchantStats = ({ transactions, stats }: MerchantStatsProps) => {
   const currency = stats.currency || 'USD';
 
   const formatCurrency = (amount: number) => {
@@ -24,7 +24,6 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
     const merchantMap = new Map<string, { total: number; count: number }>();
     
     transactions.filter(t => !t.isIncome).forEach(t => {
-      // Normalize merchant name
       const name = t.description.substring(0, 25).trim();
       const current = merchantMap.get(name) || { total: 0, count: 0 };
       current.total += t.amount;
@@ -47,7 +46,6 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
   const spendingDistribution = useMemo(() => {
     const expenses = transactions.filter(t => !t.isIncome);
     
-    // Get currency symbol
     const getCurrencySymbol = () => {
       try {
         const formatted = new Intl.NumberFormat('en-US', {
@@ -82,52 +80,6 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
     return ranges.filter(r => r.count > 0);
   }, [transactions, currency]);
 
-  // Insights
-  const insights = useMemo(() => {
-    const expenses = transactions.filter(t => !t.isIncome);
-    const incomes = transactions.filter(t => t.isIncome);
-    
-    const results: string[] = [];
-
-    // Largest single expense
-    if (expenses.length > 0) {
-      const largest = expenses.reduce((max, t) => t.amount > max.amount ? t : max, expenses[0]);
-      results.push(`Your largest expense was ${formatCurrency(largest.amount)} at ${largest.description.substring(0, 20)}`);
-    }
-
-    // Average daily spend
-    const uniqueDays = new Set(expenses.map(t => t.date.toDateString())).size;
-    if (uniqueDays > 0) {
-      const avgDaily = stats.totalSpent / uniqueDays;
-      results.push(`You spend an average of ${formatCurrency(avgDaily)} per day`);
-    }
-
-    // Most frequent merchant
-    if (topMerchants.length > 0 && topMerchants[0].count > 1) {
-      results.push(`${topMerchants[0].name} is your most visited merchant (${topMerchants[0].count} visits)`);
-    }
-
-    // Savings rate - only for bank statements (not credit cards)
-    const isCreditCard = stats.balanceInfo?.type === 'credit_card';
-    if (!isCreditCard && incomes.length > 0 && stats.totalIncome > 0) {
-      const savingsRate = ((stats.totalIncome - stats.totalSpent) / stats.totalIncome) * 100;
-      if (savingsRate > 0) {
-        results.push(`Your savings rate is ${savingsRate.toFixed(0)}%`);
-      } else {
-        results.push(`You spent ${formatCurrency(Math.abs(stats.totalIncome - stats.totalSpent))} more than you earned`);
-      }
-    }
-
-    // Small purchases add up
-    const smallPurchases = expenses.filter(t => t.amount < 10);
-    if (smallPurchases.length > 5) {
-      const smallTotal = smallPurchases.reduce((sum, t) => sum + t.amount, 0);
-      results.push(`${smallPurchases.length} small purchases (under $10) totaled ${formatCurrency(smallTotal)}`);
-    }
-
-    return results;
-  }, [transactions, stats, topMerchants, formatCurrency]);
-
   const COLORS = [
     'hsl(var(--foreground))',
     'hsl(var(--muted-foreground))',
@@ -137,29 +89,12 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
     'hsl(0, 0%, 90%)',
   ];
 
-  if (transactions.length < 3) {
+  if (transactions.length < 3 || topMerchants.length === 0) {
     return null;
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 mb-6 md:mb-8">
-      {/* Key Insights */}
-      {insights.length > 0 && (
-        <div className="p-3 md:p-4 rounded-lg border border-border bg-card">
-          <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-muted-foreground mb-2 md:mb-3">
-            Key Insights
-          </p>
-          <div className="space-y-2">
-            {insights.map((insight, idx) => (
-              <div key={idx} className="flex items-start gap-2 text-xs md:text-sm">
-                <span className="text-muted-foreground shrink-0">•</span>
-                <span>{insight}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+    <div className="mb-6 md:mb-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
         {/* Top Merchants */}
         <div className="p-3 md:p-4 rounded-lg border border-border bg-card">
@@ -243,4 +178,4 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
   );
 };
 
-export default BehaviorInsights;
+export default MerchantStats;

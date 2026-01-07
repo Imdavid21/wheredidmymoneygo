@@ -6,7 +6,8 @@ import StatsGrid from '@/components/StatsGrid';
 import SankeyDiagram from '@/components/SankeyDiagram';
 import CategoryBreakdown from '@/components/CategoryBreakdown';
 import SpendingTrends from '@/components/SpendingTrends';
-import BehaviorInsights from '@/components/BehaviorInsights';
+import KeyInsights from '@/components/KeyInsights';
+import MerchantStats from '@/components/MerchantStats';
 import { ParsedData, Transaction, CategoryData, IncomeSource, FinanceStats } from '@/types/finance';
 import { parseFile } from '@/utils/fileParser';
 import { toast } from '@/hooks/use-toast';
@@ -324,7 +325,7 @@ const Index = () => {
             
             <StatsGrid stats={data.stats} incomeSources={data.incomeSources} />
             
-            <BehaviorInsights transactions={data.transactions} stats={data.stats} />
+            <KeyInsights transactions={data.transactions} stats={data.stats} />
             
             {data.categories.length > 0 && (
               <SankeyDiagram 
@@ -332,6 +333,8 @@ const Index = () => {
                 stats={data.stats} 
               />
             )}
+            
+            <MerchantStats transactions={data.transactions} stats={data.stats} />
             
             <SpendingTrends transactions={data.transactions} stats={data.stats} />
             
