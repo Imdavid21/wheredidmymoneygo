@@ -46,13 +46,29 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
   // Spending size distribution
   const spendingDistribution = useMemo(() => {
     const expenses = transactions.filter(t => !t.isIncome);
+    
+    // Get currency symbol
+    const getCurrencySymbol = () => {
+      try {
+        const formatted = new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency,
+          minimumFractionDigits: 0
+        }).format(0);
+        return formatted.replace(/[0-9]/g, '').trim();
+      } catch {
+        return '$';
+      }
+    };
+    const symbol = getCurrencySymbol();
+    
     const ranges = [
-      { name: 'Under $10', min: 0, max: 10, count: 0, total: 0 },
-      { name: '$10-$25', min: 10, max: 25, count: 0, total: 0 },
-      { name: '$25-$50', min: 25, max: 50, count: 0, total: 0 },
-      { name: '$50-$100', min: 50, max: 100, count: 0, total: 0 },
-      { name: '$100-$250', min: 100, max: 250, count: 0, total: 0 },
-      { name: 'Over $250', min: 250, max: Infinity, count: 0, total: 0 },
+      { name: `Under ${symbol}10`, min: 0, max: 10, count: 0, total: 0 },
+      { name: `${symbol}10-${symbol}25`, min: 10, max: 25, count: 0, total: 0 },
+      { name: `${symbol}25-${symbol}50`, min: 25, max: 50, count: 0, total: 0 },
+      { name: `${symbol}50-${symbol}100`, min: 50, max: 100, count: 0, total: 0 },
+      { name: `${symbol}100-${symbol}250`, min: 100, max: 250, count: 0, total: 0 },
+      { name: `Over ${symbol}250`, min: 250, max: Infinity, count: 0, total: 0 },
     ];
 
     expenses.forEach(t => {
@@ -64,7 +80,7 @@ const BehaviorInsights = ({ transactions, stats }: BehaviorInsightsProps) => {
     });
 
     return ranges.filter(r => r.count > 0);
-  }, [transactions]);
+  }, [transactions, currency]);
 
   // Insights
   const insights = useMemo(() => {
