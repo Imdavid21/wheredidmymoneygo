@@ -18,6 +18,8 @@ interface Subscription {
 }
 
 interface CancelInfo {
+  isSubscription: boolean;
+  serviceName: string | null;
   url: string | null;
   instruction: string | null;
   confidence: 'high' | 'medium' | 'low';
@@ -83,7 +85,7 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
         
         setCancelLinks(prev => ({
           ...prev,
-          [sub.name]: { url: null, instruction: null, confidence: 'low', loading: true }
+          [sub.name]: { isSubscription: true, serviceName: null, url: null, instruction: null, confidence: 'low', loading: true }
         }));
 
         try {
@@ -99,13 +101,13 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
           } else {
             setCancelLinks(prev => ({
               ...prev,
-              [sub.name]: { url: null, instruction: 'Search online', confidence: 'low', loading: false }
+              [sub.name]: { isSubscription: false, serviceName: null, url: null, instruction: 'Search online', confidence: 'low', loading: false }
             }));
           }
         } catch {
           setCancelLinks(prev => ({
             ...prev,
-            [sub.name]: { url: null, instruction: 'Search online', confidence: 'low', loading: false }
+            [sub.name]: { isSubscription: false, serviceName: null, url: null, instruction: 'Search online', confidence: 'low', loading: false }
           }));
         }
       }
@@ -116,19 +118,33 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
     }
   }, [subscriptions]);
 
+  // Filter to only show confirmed subscriptions (or still loading)
+  const confirmedSubscriptions = useMemo(() => {
+    return subscriptions.filter(sub => {
+      const info = cancelLinks[sub.name];
+      // Show if: still loading, not yet checked, or confirmed as subscription
+      return !info || info.loading || info.isSubscription;
+    });
+  }, [subscriptions, cancelLinks]);
+
   const totalMonthly = useMemo(() => {
-    return subscriptions.reduce((sum, sub) => sum + sub.monthlyAmount, 0);
-  }, [subscriptions]);
+    return confirmedSubscriptions.reduce((sum, sub) => sum + sub.monthlyAmount, 0);
+  }, [confirmedSubscriptions]);
 
   const totalAnnual = useMemo(() => {
-    return subscriptions.reduce((sum, sub) => sum + sub.annualProjection, 0);
-  }, [subscriptions]);
+    return confirmedSubscriptions.reduce((sum, sub) => sum + sub.annualProjection, 0);
+  }, [confirmedSubscriptions]);
+
+  if (confirmedSubscriptions.length === 0 && Object.keys(cancelLinks).length > 0) {
+    // All checked and none are subscriptions
+    return null;
+  }
 
   if (subscriptions.length === 0) {
     return null;
   }
 
-  const displaySubs = expanded ? subscriptions : subscriptions.slice(0, 5);
+  const displaySubs = expanded ? confirmedSubscriptions : confirmedSubscriptions.slice(0, 5);
 
   return (
     <div className="mb-6 md:mb-8">
@@ -138,7 +154,7 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
           <div>
             <h2 className="text-sm md:text-base font-semibold">Subscriptions</h2>
             <p className="text-[10px] md:text-xs text-muted-foreground">
-              {subscriptions.length} recurring payments detected
+              {confirmedSubscriptions.length} subscriptions detected
             </p>
           </div>
           <div className="text-right">
@@ -151,13 +167,14 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
         <div className="space-y-3">
           {displaySubs.map((sub, idx) => {
             const cancelInfo = cancelLinks[sub.name];
+            const displayName = cancelInfo?.serviceName || sub.name;
             
             return (
               <div key={idx} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium truncate">{sub.name}</p>
+                  <p className="text-sm font-medium truncate">{displayName}</p>
                   <p className="text-[10px] text-muted-foreground">
-                    {sub.count} payments
+                    {sub.count} payments • {formatCurrency(sub.paidSoFar)} paid
                   </p>
                 </div>
                 
@@ -190,7 +207,7 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
         </div>
 
         {/* Expand/Collapse */}
-        {subscriptions.length > 5 && (
+        {confirmedSubscriptions.length > 5 && (
           <button
             onClick={() => setExpanded(!expanded)}
             className="w-full mt-3 pt-3 border-t border-border flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -198,7 +215,7 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
             {expanded ? (
               <>Show less <ChevronUp className="w-4 h-4" /></>
             ) : (
-              <>Show {subscriptions.length - 5} more <ChevronDown className="w-4 h-4" /></>
+              <>Show {confirmedSubscriptions.length - 5} more <ChevronDown className="w-4 h-4" /></>
             )}
           </button>
         )}

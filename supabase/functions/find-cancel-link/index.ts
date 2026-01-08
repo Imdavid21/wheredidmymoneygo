@@ -29,23 +29,33 @@ serve(async (req) => {
       );
     }
 
-    const prompt = `You are a helpful assistant that finds subscription cancellation links.
+const prompt = `You are an expert at identifying subscriptions and finding cancellation links.
 
-For the subscription service "${subscriptionName}", provide the direct URL where users can cancel or manage their subscription.
+Analyze this transaction descriptor: "${subscriptionName}"
 
-Rules:
-1. Only provide official, legitimate URLs from the actual service
-2. Prefer direct cancellation pages over general account pages
-3. If it's a physical service (gym, etc), say "Contact provider directly"
-4. If you're not sure about the exact URL, provide the account/settings page URL
-5. Be concise - just the URL or brief instruction
+First, determine if this is a SUBSCRIPTION (recurring digital/service payment) or NOT a subscription.
+
+SUBSCRIPTIONS include: streaming services (Netflix, Spotify, Disney+), software (Adobe, Microsoft 365), cloud services (AWS, Google Cloud), food delivery memberships (DoorDash, Zomato Pro), gym memberships, news/magazine subscriptions, gaming subscriptions (Xbox Game Pass, PlayStation Plus), VPN services, productivity tools, etc.
+
+NOT SUBSCRIPTIONS: rent payments, loan EMIs, utility bills (electricity, water, gas), one-time purchases, grocery shopping, restaurant bills, fuel/gas, ATM withdrawals, bank transfers, insurance premiums, credit card bills, tax payments, medical bills, education fees.
 
 Respond in this JSON format:
 {
-  "url": "the cancellation URL or null if unknown",
-  "instruction": "brief instruction like 'Go to Account > Subscription' or null",
+  "isSubscription": true or false,
+  "serviceName": "Clean name of the service if subscription, or null",
+  "url": "the cancellation URL or null if not a subscription/unknown",
+  "instruction": "brief instruction like 'Go to Account > Subscription' or why it's not a subscription",
   "confidence": "high" | "medium" | "low"
-}`;
+}
+
+If it IS a subscription:
+- Provide the official cancellation/account URL
+- Prefer direct cancellation pages over general pages
+- For physical services (gyms), say "Contact provider directly"
+
+If it is NOT a subscription:
+- Set isSubscription to false
+- Explain briefly what type of expense it is`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
