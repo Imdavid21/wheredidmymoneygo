@@ -1,13 +1,21 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Transaction, FinanceStats, TopMerchant } from '@/types/finance';
+import { ChevronDown, ChevronUp, Lightbulb } from 'lucide-react';
 
 interface KeyInsightsProps {
   transactions: Transaction[];
   stats: FinanceStats;
 }
 
+interface Insight {
+  id: string;
+  text: string;
+  detail?: string;
+}
+
 const KeyInsights = ({ transactions, stats }: KeyInsightsProps) => {
   const currency = stats.currency || 'USD';
+  const [expanded, setExpanded] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -18,7 +26,6 @@ const KeyInsights = ({ transactions, stats }: KeyInsightsProps) => {
     }).format(amount);
   };
 
-  // Top merchants for insight generation
   const topMerchants = useMemo((): TopMerchant[] => {
     const merchantMap = new Map<string, { total: number; count: number }>();
     
@@ -38,86 +45,160 @@ const KeyInsights = ({ transactions, stats }: KeyInsightsProps) => {
         avgTransaction: data.total / data.count
       }))
       .sort((a, b) => b.total - a.total)
-      .slice(0, 8);
+      .slice(0, 5);
   }, [transactions]);
 
-  // Transaction size distribution for insights
-  const transactionSizeInsights = useMemo(() => {
+  const insights = useMemo((): Insight[] => {
     const expenses = transactions.filter(t => !t.isIncome);
-    const small = expenses.filter(t => t.amount < 10);
-    const medium = expenses.filter(t => t.amount >= 10 && t.amount < 50);
-    const large = expenses.filter(t => t.amount >= 50 && t.amount < 100);
-    const xlarge = expenses.filter(t => t.amount >= 100);
-    
-    return { small, medium, large, xlarge, total: expenses.length };
-  }, [transactions]);
+    const results: Insight[] = [];
+    const seenTypes = new Set<string>();
 
-  const insights = useMemo(() => {
-    const expenses = transactions.filter(t => !t.isIncome);
-    
-    const results: string[] = [];
-
-    // Largest single expense
+    // Largest expense
     if (expenses.length > 0) {
       const largest = expenses.reduce((max, t) => t.amount > max.amount ? t : max, expenses[0]);
-      results.push(`Your largest expense was ${formatCurrency(largest.amount)} at ${largest.description.substring(0, 20)}`);
+      if (!seenTypes.has('largest')) {
+        results.push({
+          id: 'largest',
+          text: `Biggest expense: ${formatCurrency(largest.amount)}`,
+          detail: `at ${largest.description.substring(0, 30)}`
+        });
+        seenTypes.add('largest');
+      }
     }
 
-    // Average daily spend
+    // Daily average
     const uniqueDays = new Set(expenses.map(t => t.date.toDateString())).size;
-    if (uniqueDays > 0) {
+    if (uniqueDays > 0 && !seenTypes.has('daily')) {
       const avgDaily = stats.totalSpent / uniqueDays;
-      results.push(`You spend an average of ${formatCurrency(avgDaily)} per day`);
+      results.push({
+        id: 'daily',
+        text: `Daily average: ${formatCurrency(avgDaily)}`,
+        detail: `across ${uniqueDays} days`
+      });
+      seenTypes.add('daily');
     }
 
-    // Top merchant insight
-    if (topMerchants.length > 0) {
+    // Top merchant
+    if (topMerchants.length > 0 && !seenTypes.has('top-merchant')) {
       const top = topMerchants[0];
-      results.push(`${top.name} is where you spent most: ${formatCurrency(top.total)} across ${top.count} transactions`);
+      results.push({
+        id: 'top-merchant',
+        text: `Top merchant: ${top.name}`,
+        detail: `${formatCurrency(top.total)} (${top.count} visits)`
+      });
+      seenTypes.add('top-merchant');
     }
 
-    // Second top merchant if exists
-    if (topMerchants.length > 1 && topMerchants[1].count > 1) {
-      const second = topMerchants[1];
-      results.push(`${second.name} is your second biggest merchant (${formatCurrency(second.total)})`);
-    }
-
-    // Transaction size insights
-    const { small, xlarge, total } = transactionSizeInsights;
-    
-    if (small.length > 5) {
+    // Small purchases
+    const small = expenses.filter(t => t.amount < 10);
+    if (small.length > 5 && !seenTypes.has('small')) {
       const smallTotal = small.reduce((sum, t) => sum + t.amount, 0);
-      const smallPercent = ((small.length / total) * 100).toFixed(0);
-      results.push(`${small.length} small purchases (under $10) made up ${smallPercent}% of transactions, totaling ${formatCurrency(smallTotal)}`);
+      results.push({
+        id: 'small',
+        text: `Small purchases add up`,
+        detail: `${small.length} transactions under $10 = ${formatCurrency(smallTotal)}`
+      });
+      seenTypes.add('small');
     }
 
-    if (xlarge.length > 0) {
-      const xlargeTotal = xlarge.reduce((sum, t) => sum + t.amount, 0);
-      const xlargePercent = ((xlargeTotal / stats.totalSpent) * 100).toFixed(0);
-      results.push(`${xlarge.length} large purchases ($100+) accounted for ${xlargePercent}% of your spending`);
+    // Large purchases
+    const large = expenses.filter(t => t.amount >= 100);
+    if (large.length > 0 && !seenTypes.has('large')) {
+      const largeTotal = large.reduce((sum, t) => sum + t.amount, 0);
+      const pct = ((largeTotal / stats.totalSpent) * 100).toFixed(0);
+      results.push({
+        id: 'large',
+        text: `${large.length} big purchases`,
+        detail: `$100+ transactions = ${pct}% of spending`
+      });
+      seenTypes.add('large');
+    }
+
+    // Weekend vs weekday
+    const weekendExpenses = expenses.filter(t => {
+      const day = t.date.getDay();
+      return day === 0 || day === 6;
+    });
+    const weekdayExpenses = expenses.filter(t => {
+      const day = t.date.getDay();
+      return day >= 1 && day <= 5;
+    });
+    
+    if (weekendExpenses.length > 0 && weekdayExpenses.length > 0 && !seenTypes.has('weekend')) {
+      const weekendAvg = weekendExpenses.reduce((sum, t) => sum + t.amount, 0) / weekendExpenses.length;
+      const weekdayAvg = weekdayExpenses.reduce((sum, t) => sum + t.amount, 0) / weekdayExpenses.length;
+      
+      if (weekendAvg > weekdayAvg * 1.2) {
+        results.push({
+          id: 'weekend',
+          text: 'Weekend spending is higher',
+          detail: `${formatCurrency(weekendAvg)} avg vs ${formatCurrency(weekdayAvg)} weekday`
+        });
+        seenTypes.add('weekend');
+      }
+    }
+
+    // Most active day
+    const dayTotals = new Map<number, number>();
+    expenses.forEach(t => {
+      const day = t.date.getDay();
+      dayTotals.set(day, (dayTotals.get(day) || 0) + t.amount);
+    });
+    
+    if (dayTotals.size > 0 && !seenTypes.has('active-day')) {
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const [topDay] = Array.from(dayTotals.entries()).sort((a, b) => b[1] - a[1])[0];
+      results.push({
+        id: 'active-day',
+        text: `${days[topDay]}s are expensive`,
+        detail: `Most spending happens on ${days[topDay]}s`
+      });
+      seenTypes.add('active-day');
     }
 
     return results;
-  }, [transactions, stats, topMerchants, transactionSizeInsights, formatCurrency]);
+  }, [transactions, stats, topMerchants, formatCurrency]);
 
   if (transactions.length < 3 || insights.length === 0) {
     return null;
   }
 
+  const displayInsights = expanded ? insights : insights.slice(0, 3);
+
   return (
     <div className="mb-6 md:mb-8">
-      <div className="p-3 md:p-4 rounded-lg border border-border bg-card">
-        <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-muted-foreground mb-2 md:mb-3">
-          Key Insights
-        </p>
+      <div className="p-4 md:p-5 rounded-lg border border-border bg-card">
+        <div className="flex items-center gap-2 mb-3">
+          <Lightbulb className="w-4 h-4 text-primary" />
+          <h2 className="text-sm md:text-base font-semibold">Insights</h2>
+        </div>
+        
         <div className="space-y-2">
-          {insights.map((insight, idx) => (
-            <div key={idx} className="flex items-start gap-2 text-xs md:text-sm">
-              <span className="text-muted-foreground shrink-0">•</span>
-              <span>{insight}</span>
+          {displayInsights.map((insight) => (
+            <div key={insight.id} className="flex items-start gap-2">
+              <span className="text-primary mt-1">•</span>
+              <div>
+                <span className="text-sm">{insight.text}</span>
+                {insight.detail && (
+                  <span className="text-xs text-muted-foreground ml-1">— {insight.detail}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>
+
+        {insights.length > 3 && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="w-full mt-3 pt-3 border-t border-border flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {expanded ? (
+              <>Show less <ChevronUp className="w-4 h-4" /></>
+            ) : (
+              <>Show {insights.length - 3} more insights <ChevronDown className="w-4 h-4" /></>
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
