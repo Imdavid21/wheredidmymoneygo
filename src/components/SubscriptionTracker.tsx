@@ -84,40 +84,51 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
     return subs.sort((a, b) => b.monthlyAmount - a.monthlyAmount);
   }, [transactions]);
 
-  // Fetch cancel links for subscriptions
+  // Fetch cancel links for ALL subscriptions in parallel
   useEffect(() => {
     const fetchCancelLinks = async () => {
-      for (const sub of subscriptions.slice(0, 10)) {
-        if (cancelLinks[sub.name]) continue;
-        
-        setCancelLinks(prev => ({
-          ...prev,
-          [sub.name]: { isSubscription: true, serviceName: null, url: null, instruction: null, confidence: 'low', loading: true }
-        }));
+      const subsToFetch = subscriptions.filter(sub => !cancelLinks[sub.name]);
+      
+      if (subsToFetch.length === 0) return;
+      
+      // Set all to loading first
+      setCancelLinks(prev => {
+        const updated = { ...prev };
+        subsToFetch.forEach(sub => {
+          updated[sub.name] = { isSubscription: true, serviceName: null, url: null, instruction: null, confidence: 'low', loading: true };
+        });
+        return updated;
+      });
 
-        try {
-          const { data, error } = await supabase.functions.invoke('find-cancel-link', {
-            body: { subscriptionName: sub.name }
-          });
+      // Fetch all in parallel
+      const results = await Promise.all(
+        subsToFetch.map(async (sub) => {
+          try {
+            const { data, error } = await supabase.functions.invoke('find-cancel-link', {
+              body: { subscriptionName: sub.name }
+            });
 
-          if (!error && data) {
-            setCancelLinks(prev => ({
-              ...prev,
-              [sub.name]: { ...data, loading: false }
-            }));
-          } else {
-            setCancelLinks(prev => ({
-              ...prev,
-              [sub.name]: { isSubscription: false, serviceName: null, url: null, instruction: 'Search online', confidence: 'low', loading: false }
-            }));
+            if (!error && data) {
+              return { name: sub.name, info: { ...data, loading: false } };
+            }
+          } catch {
+            // Ignore errors
           }
-        } catch {
-          setCancelLinks(prev => ({
-            ...prev,
-            [sub.name]: { isSubscription: false, serviceName: null, url: null, instruction: 'Search online', confidence: 'low', loading: false }
-          }));
-        }
-      }
+          return { 
+            name: sub.name, 
+            info: { isSubscription: false, serviceName: null, url: null, instruction: 'Search online', confidence: 'low', loading: false } 
+          };
+        })
+      );
+
+      // Update state once with all results
+      setCancelLinks(prev => {
+        const updated = { ...prev };
+        results.forEach(({ name, info }) => {
+          updated[name] = info;
+        });
+        return updated;
+      });
     };
 
     if (subscriptions.length > 0) {
