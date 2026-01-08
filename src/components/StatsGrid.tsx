@@ -1,12 +1,11 @@
-import { FinanceStats, IncomeSource } from '@/types/finance';
+import { FinanceStats } from '@/types/finance';
 import { Progress } from '@/components/ui/progress';
 
 interface StatsGridProps {
   stats: FinanceStats;
-  incomeSources: IncomeSource[];
 }
 
-const StatsGrid = ({ stats, incomeSources }: StatsGridProps) => {
+const StatsGrid = ({ stats }: StatsGridProps) => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -20,47 +19,24 @@ const StatsGrid = ({ stats, incomeSources }: StatsGridProps) => {
   const isCreditCard = balanceInfo?.type === 'credit_card';
   const isBank = balanceInfo?.type === 'bank';
 
-  // For credit cards, don't show income stats
-  const statCards = isCreditCard
-    ? [
-        {
-          label: 'Total Charges',
-          value: formatCurrency(stats.totalSpent),
-          subtext: `${stats.spentCount} transactions`
-        },
-        {
-          label: 'Recurring',
-          value: formatCurrency(stats.recurringCharges),
-          subtext: `${stats.recurringCount} subscriptions`
-        },
-        {
-          label: 'Average',
-          value: formatCurrency(stats.avgPerTransaction),
-          subtext: 'per transaction'
-        }
-      ]
-    : [
-        {
-          label: 'Income',
-          value: formatCurrency(stats.totalIncome),
-          subtext: `${stats.incomeCount} deposits`
-        },
-        {
-          label: 'Spent',
-          value: formatCurrency(stats.totalSpent),
-          subtext: `${stats.spentCount} transactions`
-        },
-        {
-          label: 'Recurring',
-          value: formatCurrency(stats.recurringCharges),
-          subtext: `${stats.recurringCount} subscriptions`
-        },
-        {
-          label: 'Average',
-          value: formatCurrency(stats.avgPerTransaction),
-          subtext: 'per transaction'
-        }
-      ];
+  // Simplified stats without income
+  const statCards = [
+    {
+      label: 'Total Spent',
+      value: formatCurrency(stats.totalSpent),
+      subtext: `${stats.spentCount} transactions`
+    },
+    {
+      label: 'Recurring',
+      value: formatCurrency(stats.recurringCharges),
+      subtext: `${stats.recurringCount} subscriptions`
+    },
+    {
+      label: 'Average',
+      value: formatCurrency(stats.avgPerTransaction),
+      subtext: 'per transaction'
+    }
+  ];
 
   const creditUsagePercent = isCreditCard && balanceInfo.creditLimit 
     ? ((balanceInfo.creditUsed || 0) / balanceInfo.creditLimit) * 100 
@@ -123,17 +99,12 @@ const StatsGrid = ({ stats, incomeSources }: StatsGridProps) => {
         </div>
       )}
 
-      {/* Stats Grid - center 3 cards, grid for 4 */}
-      <div className={statCards.length === 3 
-        ? "flex flex-wrap justify-center gap-2 md:gap-4" 
-        : "grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4"
-      }>
+      {/* Stats Grid - centered 3 cards */}
+      <div className="flex flex-wrap justify-center gap-2 md:gap-4">
         {statCards.map((stat) => (
           <div 
             key={stat.label} 
-            className={`p-3 md:p-5 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors ${
-              statCards.length === 3 ? 'w-full sm:w-auto sm:flex-1 sm:max-w-[200px]' : ''
-            }`}
+            className="p-3 md:p-5 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors w-full sm:w-auto sm:flex-1 sm:max-w-[200px]"
           >
             <p className="text-[9px] md:text-[11px] uppercase tracking-wide text-muted-foreground mb-1 md:mb-2">
               {stat.label}
@@ -147,26 +118,6 @@ const StatsGrid = ({ stats, incomeSources }: StatsGridProps) => {
           </div>
         ))}
       </div>
-
-      {/* Income Sources - only show for bank statements with income */}
-      {!isCreditCard && incomeSources.length > 0 && (
-        <div className="p-3 md:p-5 rounded-lg border border-border bg-card">
-          <p className="text-[10px] md:text-[11px] uppercase tracking-wide text-muted-foreground mb-2 md:mb-3">
-            Income Sources
-          </p>
-          <div className="space-y-1.5 md:space-y-2">
-            {incomeSources.slice(0, 5).map((source, idx) => (
-              <div key={idx} className="flex items-center justify-between text-xs md:text-sm">
-                <span className="text-muted-foreground truncate max-w-[55%] md:max-w-[60%]">{source.name}</span>
-                <span className="font-medium">{formatCurrency(source.total)}</span>
-              </div>
-            ))}
-            {incomeSources.length > 5 && (
-              <p className="text-[10px] text-muted-foreground">+{incomeSources.length - 5} more</p>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

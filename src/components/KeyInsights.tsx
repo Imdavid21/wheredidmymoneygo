@@ -41,9 +41,19 @@ const KeyInsights = ({ transactions, stats }: KeyInsightsProps) => {
       .slice(0, 8);
   }, [transactions]);
 
+  // Transaction size distribution for insights
+  const transactionSizeInsights = useMemo(() => {
+    const expenses = transactions.filter(t => !t.isIncome);
+    const small = expenses.filter(t => t.amount < 10);
+    const medium = expenses.filter(t => t.amount >= 10 && t.amount < 50);
+    const large = expenses.filter(t => t.amount >= 50 && t.amount < 100);
+    const xlarge = expenses.filter(t => t.amount >= 100);
+    
+    return { small, medium, large, xlarge, total: expenses.length };
+  }, [transactions]);
+
   const insights = useMemo(() => {
     const expenses = transactions.filter(t => !t.isIncome);
-    const incomes = transactions.filter(t => t.isIncome);
     
     const results: string[] = [];
 
@@ -60,31 +70,35 @@ const KeyInsights = ({ transactions, stats }: KeyInsightsProps) => {
       results.push(`You spend an average of ${formatCurrency(avgDaily)} per day`);
     }
 
-    // Most frequent merchant
-    if (topMerchants.length > 0 && topMerchants[0].count > 1) {
-      results.push(`${topMerchants[0].name} is your most visited merchant (${topMerchants[0].count} visits)`);
+    // Top merchant insight
+    if (topMerchants.length > 0) {
+      const top = topMerchants[0];
+      results.push(`${top.name} is where you spent most: ${formatCurrency(top.total)} across ${top.count} transactions`);
     }
 
-    // Savings rate - only for bank statements (not credit cards)
-    const isCreditCard = stats.balanceInfo?.type === 'credit_card';
-    if (!isCreditCard && incomes.length > 0 && stats.totalIncome > 0) {
-      const savingsRate = ((stats.totalIncome - stats.totalSpent) / stats.totalIncome) * 100;
-      if (savingsRate > 0) {
-        results.push(`Your savings rate is ${savingsRate.toFixed(0)}%`);
-      } else {
-        results.push(`You spent ${formatCurrency(Math.abs(stats.totalIncome - stats.totalSpent))} more than you earned`);
-      }
+    // Second top merchant if exists
+    if (topMerchants.length > 1 && topMerchants[1].count > 1) {
+      const second = topMerchants[1];
+      results.push(`${second.name} is your second biggest merchant (${formatCurrency(second.total)})`);
     }
 
-    // Small purchases add up
-    const smallPurchases = expenses.filter(t => t.amount < 10);
-    if (smallPurchases.length > 5) {
-      const smallTotal = smallPurchases.reduce((sum, t) => sum + t.amount, 0);
-      results.push(`${smallPurchases.length} small purchases (under $10) totaled ${formatCurrency(smallTotal)}`);
+    // Transaction size insights
+    const { small, xlarge, total } = transactionSizeInsights;
+    
+    if (small.length > 5) {
+      const smallTotal = small.reduce((sum, t) => sum + t.amount, 0);
+      const smallPercent = ((small.length / total) * 100).toFixed(0);
+      results.push(`${small.length} small purchases (under $10) made up ${smallPercent}% of transactions, totaling ${formatCurrency(smallTotal)}`);
+    }
+
+    if (xlarge.length > 0) {
+      const xlargeTotal = xlarge.reduce((sum, t) => sum + t.amount, 0);
+      const xlargePercent = ((xlargeTotal / stats.totalSpent) * 100).toFixed(0);
+      results.push(`${xlarge.length} large purchases ($100+) accounted for ${xlargePercent}% of your spending`);
     }
 
     return results;
-  }, [transactions, stats, topMerchants, formatCurrency]);
+  }, [transactions, stats, topMerchants, transactionSizeInsights, formatCurrency]);
 
   if (transactions.length < 3 || insights.length === 0) {
     return null;
