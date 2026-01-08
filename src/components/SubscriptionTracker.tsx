@@ -43,24 +43,30 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
   const subscriptions = useMemo((): Subscription[] => {
     const expenses = transactions.filter(t => !t.isIncome);
     
+    // Group by merchant name
     const merchantMap = new Map<string, Transaction[]>();
     expenses.forEach(t => {
-      const name = t.description.substring(0, 25).trim();
+      const name = t.description.substring(0, 30).trim();
       const existing = merchantMap.get(name) || [];
       existing.push(t);
       merchantMap.set(name, existing);
     });
 
     const subs: Subscription[] = [];
+    const addedNames = new Set<string>();
     
     merchantMap.forEach((txns, name) => {
-      if (txns.length < 2) return;
+      // Include if: categorized as Subscriptions, OR recurring (2+ consistent payments)
+      const isSubscriptionCategory = txns.some(t => 
+        t.category?.toLowerCase().includes('subscription')
+      );
       
       const amounts = txns.map(t => t.amount);
       const avgAmount = amounts.reduce((a, b) => a + b, 0) / amounts.length;
-      const isConsistent = amounts.every(a => Math.abs(a - avgAmount) / avgAmount < 0.2);
+      const isConsistent = amounts.every(a => Math.abs(a - avgAmount) / avgAmount < 0.3);
+      const isRecurring = txns.length >= 2 && isConsistent;
       
-      if (isConsistent || txns.length >= 3) {
+      if (isSubscriptionCategory || isRecurring || txns.length >= 3) {
         const paidSoFar = txns.reduce((sum, t) => sum + t.amount, 0);
         
         subs.push({
@@ -71,6 +77,7 @@ const SubscriptionTracker = ({ transactions, stats }: SubscriptionTrackerProps) 
           transactions: txns.sort((a, b) => b.date.getTime() - a.date.getTime()),
           annualProjection: avgAmount * 12,
         });
+        addedNames.add(name);
       }
     });
 
